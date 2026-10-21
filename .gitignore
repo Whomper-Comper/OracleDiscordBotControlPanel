@@ -1,0 +1,41 @@
+# Local settings and every backup/temp variant can contain credentials.
+config.json
+config.json.*
+!config.example.json
+
+# Bot credentials, SSH identities and local credential stores.
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.ssh/
+.aws/
+.credentials/
+credentials.json
+secrets.json
+
+# Runtime output, databases, backups and uploaded archives.
+*.log
+*.db
+*.db-*
+*.sqlite*
+*.bak
+*.tgz
+*.zip
+backups/
+bot-output-*.txt
+node_modules/
+coverage/
+.publish/
+
+# Editor and operating-system files.
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

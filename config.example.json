@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "server": {
+    "host": "",
+    "port": "22",
+    "user": "opc",
+    "key": "",
+    "token": ""
+  },
+  "activeBotId": "example-bot",
+  "bots": [
+    {
+      "id": "example-bot",
+      "name": "Example bot",
+      "managed": true,
+      "repo": "",
+      "branch": "main",
+      "dir": "/home/opc/bots/example-bot",
+      "app": "example-bot",
+      "buildCmd": "npm run build --if-present",
+      "cmdSyncCmd": "",
+      "localEnv": "",
+      "localBot": "",
+      "entryFile": ""
+    }
+  ]
+}
