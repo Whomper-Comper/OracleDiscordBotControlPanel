@@ -8,23 +8,27 @@ This document maps the **supplied implementation**, not a proposed design. The a
 | --- | --- | --- |
 | `Launch-Control-Panel.cmd` | Move to launcher directory, check `node`, open browser, start server | `where node`, `start`, `node server.cjs` |
 | `server.cjs` | HTTP API, SSH/SCP, remote shell generation, PM2, status, uploads | `createServer`, `run`, `ssh`, `scp`, `script`, `deploy`, `status`, `ecosystem` |
-| `profiles.cjs` | Config migration, isolated profiles, validation, persistent storage | `normalize`, `active`, `update`, `add`, `validate`, `repository` |
-| `index.html` | Dashboard, profile selector, saved settings, actions, streaming output, status cards | `cfg`, `run`, `upload`, `save`, `st`, `selectBot` |
+| `profiles.cjs` | Config migration, isolated profiles, setup duplication, validation, persistent storage | `normalize`, `active`, `update`, `add`, `duplicate`, `validate`, `repository` |
+| `index.html` | Dashboard markup, styling, sidebar, dialogs, cards, fleet and output controls | Loads `panel-ui.js`, then `dashboard.js` |
+| `dashboard.js` | Browser event handlers, saved settings, profile workflows, actions/uploads, activity, output, status | `cfg`, `run`, `upload`, `save`, `st`, `selectBot`, `loadConfig` |
+| `panel-ui.js` | Dependency-free helpers shared by browser code and local tests | `matchesBot`, `fleetSummary`, `sameStatusTarget`, `matchesOutput`, `readActionResponse` |
 | `config.json` | Persistent runtime state and **secrets**, not source code | `version`, `server`, `activeBotId`, `bots` |
 | `server.test.cjs` | Process/server/script-level regression tests | Node `node:test` |
 | `profiles.test.cjs` | Profile migration, uniqueness, PM2 config and API tests | Node `node:test` |
 | `removal.test.cjs` | Removal, stale confirmations, concurrency, empty fleets, and disposable shell cleanup tests | Node `node:test`, Git Bash/Bash |
+| `duplication.test.cjs` | Copy isolation, allowed settings/overrides, duplicate API persistence, exact script routes | Node `node:test`, temporary fixtures and loopback HTTP |
+| `panel-ui.test.cjs` | Fleet/output filters, status-target matching, streaming decoding and final outcomes | Node `node:test`, in-memory response fixtures |
 
 ## Initialization and request flow
 
 1. `Launch-Control-Panel.cmd` changes to its own directory, opens `http://localhost:4321`, and runs `node server.cjs`.
 2. `server.cjs` sets up `profiles.repository(CFG, DEF)` and binds the HTTP server to **127.0.0.1:4321**.
-3. A browser `GET /` receives `index.html`. A browser `GET /api/config` receives a **merged active profile**, all bot profiles, and `activeBotId` (including sensitive configuration fields).
-4. The browser populates the sidebar and starts an optional status refresh. Sidebar edits invoke `POST /api/config` and are queued in the frontend so saves occur in order.
+3. A browser `GET /` receives `index.html`, which loads the exact `/panel-ui.js` and `/dashboard.js` script routes. A browser `GET /api/config` receives a **merged active profile**, all bot profiles, and `activeBotId` (including sensitive configuration fields).
+4. The browser populates the sidebar and starts an optional status refresh. Sidebar edits invoke `POST /api/config` and are queued in the frontend so saves occur in order. Loading failures expose a Retry control; saving states appear near the top of the sidebar.
 5. Action buttons send `POST /api/run` with `{action, params, cfg}`. The server overlays whitelisted incoming fields onto saved configuration in memory for that action via `resolveConfig`, then generates an appropriate remote shell script.
 6. The server starts `ssh.exe` to execute the generated script on the VM, or `scp.exe`/`tar.exe` when uploading. Stdout/stderr are streamed back as plain text to the browser output console.
 
-**Important difference:** `POST /api/run` uses the current browser configuration (`cfg`), which can differ from what the last `config.json` snapshot shows. `POST /api/config` persists values; normal actions do **not** necessarily persist them first.
+**Configuration at action time:** `dashboard.js` saves current settings before starting an action or upload, then sends its captured configuration snapshot. The `/api/run` endpoint itself resolves the supplied whitelisted `cfg` in memory; direct API clients must separately persist settings through `/api/config` if desired.
 
 ## Backend mechanics
 
@@ -73,15 +77,19 @@ ssh [-i KEY_IF_CONFIGURED] -p PORT
 | Method/endpoint | Request | Response and behavior |
 | --- | --- | --- |
 | `GET /` | None | `text/html`, contents of `index.html`. Other unrecognized GET paths also fall through to the HTML page. |
+| `GET /panel-ui.js`, `GET /dashboard.js` | None | `text/javascript;charset=utf-8`, contents of those two exact local browser-script files. This is an explicit allowlist, not an arbitrary static-file route. |
 | `GET /api/config` | None | JSON merged active profile, `bots`, `activeBotId`, `removalRevision`; **sensitive values are included**. With an empty fleet, returns shared settings without an active bot. |
 | `POST /api/config` | JSON of changed active profile fields, optionally `botId` | Validates and persists whitelisted fields; returns new JSON config view. |
 | `POST /api/profiles` | `{ "action": "add", "name": "...", "repo"?: "...", "entryFile"?: "..." }` or `{ "action": "select", "id": "..." }` | Adds/selects a profile, persists, returns config view. **Add** alone does not provision remote files; frontend calls `prepare` afterwards if host is set. |
+| `POST /api/profiles` | `{ "action": "duplicate", "id": "SOURCE_ID", "name": "...", "repo"?: "...", "entryFile"?: "..." }` | Requires an explicit existing source and nonempty string name; optional overrides must be strings. Copies saved deployment preferences into a new managed profile with a unique UUID/app/folder and empty local paths, saves/selects it, and returns config view. No SSH or preparation follows. |
 | `POST /api/profiles` | `{ "action": "remove", "id": "...", "revision": "...", "mode": "profile" / "uninstall" / "delete", "confirmation": "PM2_APP", "deleteFilesConfirmed": true }` | Removes a profile. `revision` comes from the config response when the dialog opens. `uninstall`/`delete` run server cleanup using saved settings first; `delete` requires the extra boolean. Returns the new config view and captured `output`; failures return HTTP 400 with `error` and any `output`. |
 | `POST /api/status` | `{ "cfg": { ... } }` | JSON `{up,load,mem,disk,app,apps}` or `{error}`. |
 | `POST /api/run` | `{ "action": "deploy", "params": {}, "cfg": { ... } }` | Streamed `text/plain` output, with final `✔ Done` or `✖ Failed (exit N)`. HTTP `200` can still represent a failed operation. |
 | `POST /api/upload` | Raw bytes, `X-Panel: 1`, `X-Target: encodeURIComponent(absoluteLinuxPath)`, `X-Cfg: encodeURIComponent(JSON.stringify(cfg))` | Streams creation/upload/file-stat messages. Uses SSH mkdir + SCP + SSH verification. |
 
 Unknown `POST` endpoints get HTTP 404. Invalid JSON or profile input can result in errors (for example JSON `{error:...}` with HTTP 400). **Do not equate HTTP 200 with successful deployment:** inspect the final streamed result.
+
+Duplication copies only `repo`, `branch`, `buildCmd`, `cmdSyncCmd`, and `entryFile`. `profiles.add()` generates the new identity, PM2 name, and folder; `localEnv`/`localBot` stay empty. Shared server settings and the source profile remain unchanged. No bot files or environment credentials are duplicated.
 
 ### Removal and empty fleets
 
@@ -105,12 +113,18 @@ The bulk HTTP file upload has **no explicit file-size cap** in this code; large 
 
 ## Status and UI synchronization
 
-1. Every **30 seconds** (if checked), browser `st()` sends `/api/status`, unless another status request is running or an action has marked the interface busy.
+1. **Refresh now** or the enabled **30-second** interval invokes browser `st()` and sends `/api/status`, unless another status request is running, an action has marked the interface busy, or a dialog is open.
 2. Server status executes `uptime -p`, `/proc/loadavg`, `free -m`, `df -h /`, and `pm2 jlist` remotely. Marked lines (`@@UP`, `@@PM2`, etc.) are parsed and converted to a JSON response.
 3. The status action has a **45-second server-side timeout**; the browser aborts its status request after **50 seconds**.
-4. The returned `apps` list populates the **All bots** fleet; the selected app receives uptime, CPU, RAM, restart count, and state. These are PM2 measurements, not Discord API checks.
+4. The returned `apps` list supplies matches for **saved profiles** in the **All bots** fleet; unrelated processes are excluded from counts. Search matches profile display/PM2 names without changing selection or totals. The selected app receives uptime, CPU, RAM, restart count, and state. These are PM2 measurements, not Discord API checks.
 5. Starting another action aborts an in-progress browser status request to avoid conflicting updates; the browser disables most fields while running the action.
-6. A status failure can reflect SSH or PM2 parsing problems even when the Node panel itself remains available.
+6. The browser shows check progress and the latest success/failure time. Failed checks clear metric cards and invalidate fleet status. Changing SSH connection or selected app/profile also clears readings, and outdated responses are ignored. A status failure can reflect SSH or PM2 parsing problems even when the Node panel itself remains available.
+
+## Activity and retained output
+
+`dashboard.js` shows an action/bot label and elapsed time during actions/uploads, then a completed, failed, cancelled, or incomplete outcome. `panel-ui.js` decodes streamed UTF-8 and checks the last result line: only `✔ Done` means success; `✖ Failed (exit N)` means failure. An otherwise finished stream without either result is incomplete, and HTTP/read errors propagate as failures.
+
+Output rendering keeps at most 5,000 lines in the current page. Search and error-text filtering hide lines without deleting them. Following scrolls appended output when near the bottom; Jump to latest resumes following. Copy all and Save all read the complete retained line set, including hidden lines; Clear discards it. These local controls neither fetch nor flush remote PM2 logs.
 
 ## Action flow example: Git deployment
 

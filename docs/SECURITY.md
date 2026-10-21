@@ -22,6 +22,8 @@ The HTTP listener binds to `127.0.0.1:4321` and checks that the request's `Host`
 
 The server masks the configured token and its URL-encoded form in **each stdout/stderr chunk** before returning output. This reduces accidental exposure, but is **not reliable universal redaction** (a secret split across chunks or transformed differently could slip through). Never rely on the output filter alone to make logs safe to publish.
 
+Output search and **Errors only** hide lines in the browser; they do not redact or delete them. **Copy all** and **Save all** include all retained lines, including hidden ones (up to the 5,000-line retention limit). Review exported text before sharing it. **Duplicate setup** copies deployment preferences only: it does not copy `.env` files, bot data, or local upload paths, and it leaves the existing shared connection credentials in place.
+
 ### Repository exclusions and examples
 
 The root `.gitignore` excludes runtime configuration and backups, SSH identities, actual environment files, databases, archives, and logs. `config.example.json` and `.env.example` are safe starter files with empty credentials. Keep them free of real values. Core exclusions include:

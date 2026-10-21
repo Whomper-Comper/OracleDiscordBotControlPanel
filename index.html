@@ -45,14 +45,20 @@ button:disabled,input:disabled,select:disabled{opacity:.5;cursor:default}
 .fleet{display:flex;gap:8px;flex-wrap:wrap}.fleet button{text-align:left;min-width:150px;flex:1}.fleet button.selected{border-color:#68bfdc;background:#193342}.fleet small{display:block;color:var(--mu)}
 dialog{background:var(--card);color:var(--ink);border:1px solid var(--bd);border-radius:12px;width:min(460px,90vw);padding:24px}dialog::backdrop{background:#0009}dialog h2{margin-top:0}dialog label{display:block;margin:12px 0 4px}dialog input{width:100%;padding:9px;background:var(--field);color:var(--ink);border:1px solid var(--bd);border-radius:6px}dialog p{color:var(--mu)}dialog .g{margin-top:18px}
 dialog select{width:100%;padding:9px;background:var(--field);color:var(--ink);border:1px solid var(--bd);border-radius:6px}dialog input[type=checkbox]{width:auto}dialog .danger{color:var(--er);overflow-wrap:anywhere}
+[hidden]{display:none!important}.muted{color:var(--mu);font-size:12px}.top{flex-wrap:wrap}.top h2{font-size:21px}.top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.top-info{min-width:0}.target{color:var(--mu);font-size:12px;overflow-wrap:anywhere;margin-top:3px}.status-note{font-size:12px;color:var(--mu);margin-top:5px}.settings-state{font-size:12px;color:var(--mu);margin-top:5px}.settings-state.e{color:var(--er)}
+.activity{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;background:var(--card);border:1px solid var(--bd);border-left:3px solid var(--mu);border-radius:7px;font-size:13px}.activity[data-state=running]{border-left-color:#68bfdc}.activity[data-state=success]{border-left-color:var(--ok)}.activity[data-state=failed]{border-left-color:var(--er)}.activity[data-state=unknown],.activity[data-state=cancelled]{border-left-color:var(--wa)}.activity small{color:var(--mu);white-space:nowrap}
+.fleet-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.fleet-head h3{margin:0}.fleet-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.fleet-tools input{flex:1;min-width:150px}.fleet button{min-width:180px;position:relative}.fleet .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--mu);margin-right:7px}.fleet .online{background:var(--ok)}.fleet .offline{background:var(--wa)}.fleet button[aria-pressed=true]{border-color:#68bfdc;background:#193342}
+.toolbar-input{border:1px solid var(--bd);border-radius:6px;padding:7px 9px;background:var(--field);color:var(--ink);font:inherit}.output-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px;border-bottom:1px solid #243040;font-size:12px;color:var(--mu)}.output-tools input[type=search]{flex:1;min-width:160px}.output-tools label{white-space:nowrap}.tb{flex-wrap:wrap}.tb strong{flex:1;font-weight:500}.term{min-height:320px}#t{min-height:200px;max-height:65vh}#outempty{padding:10px 12px;color:var(--mu);font-size:12px}.lg,.cmdrow{flex-wrap:wrap}.cmdrow input{min-width:180px}.lg select{max-width:90px}.lg label{white-space:nowrap}.advanced{margin-top:16px;border-top:1px solid #2c3948;padding-top:12px}.advanced summary{cursor:pointer;color:#a9bed3;font-size:13px}.advanced h2{margin-top:12px}.sidebar-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.sidebar-actions button{font-size:12px;padding:6px 8px}
+.cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:800px){main{padding:12px;overflow:visible}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.top-actions{width:100%}.fleet button{min-width:140px}.term{min-height:350px}.activity{align-items:flex-start}.tb button{padding:5px 8px}.lg input[type=text]{min-width:150px}}
 </style></head>
 <body>
 <aside>
   <h1>Oracle bot panel</h1><div class="mu" id="sub">Not connected</div>
+  <div class="settings-state" id="saved" role="status" aria-live="polite">Loading settings…</div><button type="button" id="retryload" hidden>Retry loading settings</button>
   <h2>Bots</h2>
-  <label>Selected bot</label><select id="botselect"></select>
-  <button id="addbot" style="margin-top:8px">+ Add bot</button>
-  <button id="removebot" class="d" style="margin-top:8px">Remove bot</button>
+  <label for="botselect">Selected bot</label><select id="botselect"></select>
+  <div class="sidebar-actions"><button id="addbot">+ Add bot</button><button id="duplicatebot">Duplicate setup</button><button id="removebot" class="d">Remove</button></div>
   <label>Bot display name</label><input data-k="name">
   <div class="mu">Each bot keeps its own repository, files and commands. Server connection settings are shared.</div>
   <h2>Server</h2>
@@ -67,6 +73,7 @@ dialog select{width:100%;padding:9px;background:var(--field);color:var(--ink);bo
   <h2>Bot on the server</h2>
   <label>Install folder</label><input data-k="dir">
   <label>PM2 app name</label><input data-k="app">
+  <details class="advanced"><summary>Build commands &amp; local files</summary>
   <label>Build command</label><input data-k="buildCmd">
   <label>Command sync (slash commands)</label><input data-k="cmdSyncCmd">
   <label>Entry file (new bots)</label><input data-k="entryFile" placeholder="Auto: repo PM2 config or npm start">
@@ -75,12 +82,13 @@ dialog select{width:100%;padding:9px;background:var(--field);color:var(--ink);bo
   <label>.env file</label><input data-k="localEnv" placeholder="C:\...\discord-bot\.env">
   <label>Bot folder</label><input data-k="localBot" placeholder="C:\...\discord-bot">
   <button id="envpick" style="margin-top:10px">Choose .env file and upload</button><input type="file" id="envf" hidden>
-  <div class="mu" id="saved">Settings save automatically to config.json</div>
+  </details>
 </aside>
 <main>
-  <div class="top"><h2 id="nm">Oracle VM</h2><label><input type="checkbox" id="auto" checked> Refresh status every 30s</label></div>
+  <div class="top"><div class="top-info"><h2 id="nm">Oracle VM</h2><div class="target" id="targetinfo"></div><div class="status-note" id="statusnote">Status not checked</div></div><div class="top-actions"><button type="button" id="refresh">Refresh now</button><label><input type="checkbox" id="auto" checked> Refresh every 30s</label></div></div>
+  <div class="activity" id="activity" data-state="idle"><span id="activitytext" role="status" aria-live="polite">Ready when you are</span><small id="activitytime" aria-hidden="true"></small></div>
   <div class="cards" id="cards"></div>
-  <section><h3>All bots</h3><p>Select a bot to manage it. Switching selection does not start or stop anything.</p><div class="fleet" id="fleet"></div></section>
+  <section><div class="fleet-head"><h3>All bots</h3><span class="muted" id="fleetcounts"></span></div><div class="fleet-tools"><input class="toolbar-input" type="search" id="botsearch" aria-label="Find a saved bot" placeholder="Find a bot by name or PM2 app…"><span class="muted">Select a bot to manage it</span></div><div class="fleet" id="fleet"></div></section>
   <div class="secs">
     <section><h3>Bot</h3><div class="g">
       <button class="p" data-a="start">Start</button><button class="d" data-a="stop">Stop</button><button class="p" data-a="restart">Restart</button><button data-a="solo">Stop others &amp; start</button><button data-a="status">PM2 status</button></div></section>
@@ -96,20 +104,21 @@ dialog select{width:100%;padding:9px;background:var(--field);color:var(--ink);bo
       <button class="p" data-a="setup">Initial setup</button><button data-a="sysupdate">Update OS packages</button><button data-a="npmupdate">Update npm &amp; PM2</button>
       <button data-a="sysinfo">Disk &amp; memory</button><button data-a="memory" title="Adds 2 GiB swap on low-memory VMs when needed">Prepare memory</button><button data-a="backup">Back up database</button><button class="d" data-a="reboot">Reboot server</button></div></section>
     <section><h3>Logs</h3>
-      <div class="lg"><select id="ll"><option>100</option><option selected>200</option><option>500</option><option>1000</option><option>3000</option></select>
-      <input type="text" id="lf" placeholder="Filter text (case-insensitive)"><label><input type="checkbox" id="le"> Errors only</label></div>
+      <div class="lg"><select id="ll" aria-label="Number of log lines"><option>100</option><option selected>200</option><option>500</option><option>1000</option><option>3000</option></select>
+      <input type="text" id="lf" aria-label="Filter remote log text" placeholder="Filter remote log text"><label><input type="checkbox" id="le"> Errors only</label></div>
       <div class="g"><button class="p" data-a="logs">Fetch logs</button><button data-a="follow">Follow live</button><button class="d" data-a="flush">Flush logs</button></div></section>
   </div>
-  <div class="cmdrow"><input id="cmd" placeholder="Run any command on the server, e.g. pm2 monit --no-interaction" spellcheck="false"><button data-a="custom">Run command</button></div>
-  <div class="term"><div class="tb"><span>Output</span><button data-a="abort">Cancel</button><button id="cp">Copy</button><button id="sv">Save</button><button id="cl">Clear</button></div><div id="t"></div></div>
+  <div class="cmdrow"><input id="cmd" aria-label="Custom server command" placeholder="Run a command on the server" spellcheck="false"><button data-a="custom">Run command</button></div>
+  <div class="term"><div class="tb"><strong>Output <small class="muted" id="outputcount"></small></strong><button data-a="abort" id="abort" disabled>Cancel action</button><button id="jump" hidden>Jump to latest</button><button id="cp">Copy all</button><button id="sv">Save all</button><button id="cl">Clear</button></div><div class="output-tools"><input class="toolbar-input" id="outputsearch" type="search" aria-label="Search displayed output" placeholder="Search output…"><label><input type="checkbox" id="outputerrors"> Errors only</label><label><input type="checkbox" id="outputfollow" checked> Follow output</label></div><div id="outempty" hidden>No output matches these filters.</div><div id="t" role="log" aria-live="off" aria-label="Action output" tabindex="0"></div></div>
 </main>
 <dialog id="newbot"><form id="newbotform">
-  <h2>Add a bot</h2><p>Give it a name to generate a separate folder, PM2 name, and launch configuration. Add a repository now or later.</p>
+  <h2 id="newtitle">Add a bot</h2><p id="newdescription">Give it a name to generate a separate folder, PM2 name, and launch configuration. Add a repository now or later.</p>
   <label for="newname">Bot name</label><input id="newname" required maxlength="100" placeholder="Music bot">
   <label for="newrepo">Repository URL (optional)</label><input id="newrepo" placeholder="https://github.com/you/music-bot.git">
   <label for="newentry">Entry file (optional)</label><input id="newentry" placeholder="Auto: repo PM2 config or npm start">
-  <p>Preparation copies .env.example when available. Upload this bot's credentials before deploying. It won't start automatically.</p>
-  <div class="g"><button class="p" type="submit">Create &amp; prepare</button><button type="button" id="cancelnew">Cancel</button></div>
+  <p id="newnote">Preparation copies .env.example when available. Upload this bot's credentials before deploying. It won't start automatically.</p>
+  <p class="danger" id="newerror" role="alert" hidden></p>
+  <div class="g"><button class="p" type="submit" id="newsubmit">Create &amp; prepare</button><button type="button" id="cancelnew">Cancel</button></div>
 </form></dialog>
 <dialog id="removebotdialog"><form id="removebotform">
   <h2>Remove bot</h2><p id="removetarget"></p>
@@ -123,96 +132,9 @@ dialog select{width:100%;padding:9px;background:var(--field);color:var(--ink);bo
   <div id="removefileswarning" hidden><p class="danger">Permanently deletes the entire install folder, including .env credentials, databases and backups. Make a separate backup first.</p>
     <label><input type="checkbox" id="removefilesconfirm"> I understand that all files in this bot folder will be deleted.</label></div>
   <label for="removeconfirm">Type the PM2 app name to confirm</label><input id="removeconfirm" required autocomplete="off" spellcheck="false">
+  <p class="danger" id="removeerror" role="alert" hidden></p>
   <div class="g"><button class="d" type="submit" id="removesubmit" disabled>Remove bot</button><button type="button" id="cancelremove">Cancel</button></div>
 </form></dialog>
-<script>
-const $=s=>document.querySelector(s),T=$('#t');let buf='',busy=false,ctl=null,statusCtl=null,botId='',bots=[],fleetApps=null,saveQueue=Promise.resolve(),removalRevision='';
-const post=(u,b,o={})=>fetch(u,{method:'POST',headers:{'X-Panel':'1','Content-Type':'application/json'},body:JSON.stringify(b),...o});
-const cfg=()=>({botId,...Object.fromEntries([...document.querySelectorAll('[data-k]')].map(e=>[e.dataset.k,e.value.trim()]))});
-const CF={resetrepo:'Discard all changes on the server and match the remote branch exactly? Untracked files you uploaded will be deleted (.env and the database are kept).',stop:'Stop the bot?',reboot:'Reboot the whole server? The connection will drop.',flush:'Delete all PM2 logs for this bot?',setup:'Run initial setup? This installs Node 22, PM2 and clones the repo.'};
-CF.solo='Stop the other bots saved in this panel, then start the selected bot? Other bots stay stopped even if starting this one fails.';
-const KS=[['state','Bot'],['up','Bot uptime'],['mem','Bot memory'],['cpu','Bot CPU'],['rs','Restarts'],['load','Server load'],['ram','Server memory'],['disk','Disk']];
-$('#cards').innerHTML=KS.map(([k,l])=>`<div class="c"><span>${l}</span><b id="s-${k}">-</b></div>`).join('');
-
-function line(l,c){const s=T.scrollHeight-T.scrollTop-T.clientHeight<60,d=document.createElement('div');d.className=c||(/error|✖|fail|denied|fatal|ERR!/i.test(l)?'e':/warn|⚠/i.test(l)?'w':/✔|success|online/i.test(l)?'o':'');d.textContent=l||' ';T.appendChild(d);while(T.children.length>5000)T.firstChild.remove();if(s)T.scrollTop=T.scrollHeight}
-function put(s){buf+=s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g,'').replace(/\r/g,'');const L=buf.split('\n');buf=L.pop();L.forEach(l=>line(l))}
-function setBusy(value){busy=value;document.body.classList.toggle('busy',value);document.querySelectorAll('aside input,aside select,#addbot,#fleet button').forEach(e=>e.disabled=value);document.querySelectorAll('[data-k]').forEach(e=>e.disabled=value||(!botId&&!['host','port','user','key','token'].includes(e.dataset.k)));document.querySelectorAll('[data-a]:not([data-a=abort]),#envpick,#pick,#cmd,#ud').forEach(e=>e.disabled=value||!botId);$('#removebot').disabled=value||!botId;$('[data-k=entryFile]').disabled=value||!bots.find(b=>b.id===botId)?.managed}
-async function api(url,payload){const r=await post(url,payload),j=await r.json();if(!r.ok||j.error){const e=new Error(j.error||'Request failed');e.output=j.output;throw e}return j}
-function renderBots(){
-  $('#botselect').replaceChildren(...bots.map(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;return o}));$('#botselect').value=botId;
-  $('#fleet').replaceChildren(...bots.map(b=>{const e=document.createElement('button'),small=document.createElement('small'),a=fleetApps?.find(a=>a.name===b.app);e.type='button';e.className=b.id===botId?'selected':'';e.disabled=busy;e.append(document.createTextNode(b.name));small.textContent=fleetApps?(a?a.status+' · '+Math.round(a.mem/1048576)+' MB':'Not started'):'Status not checked';e.append(small);e.onclick=()=>selectBot(b.id);return e}));
-  if(!bots.length){const option=document.createElement('option');option.value='';option.textContent='No bots saved';$('#botselect').append(option);$('#fleet').textContent='No saved bots. Use Add bot to create one.'}
-}
-function applyConfig(c){botId=c.activeBotId;bots=c.bots;document.querySelectorAll('[data-k]').forEach(e=>e.value=c[e.dataset.k]??'');$('#nm').textContent=c.name||'No bots saved';$('#ud').value='';$('#cmd').value='';$('#sub').textContent=botId?'Selected '+c.name:'Use Add bot to create a profile';KS.forEach(([k])=>{$('#s-'+k).textContent='-';$('#s-'+k).className=''});fleetApps=null;renderBots();setBusy(busy)}
-async function selectBot(id){if(busy||id===botId)return;setBusy(true);statusCtl?.abort();try{await save();applyConfig(await api('/api/profiles',{action:'select',id}));line('Selected '+cfg().name,'h')}catch(e){line('✖ '+e.message);$('#botselect').value=botId}finally{setBusy(false)}st()}
-$('#botselect').onchange=e=>selectBot(e.target.value);
-$('#addbot').onclick=()=>{if(!busy)$('#newbot').showModal()};$('#cancelnew').onclick=()=>$('#newbot').close();
-$('#newbotform').onsubmit=async e=>{e.preventDefault();if(busy)return;setBusy(true);statusCtl?.abort();let created=false;try{await save();applyConfig(await api('/api/profiles',{action:'add',name:$('#newname').value,repo:$('#newrepo').value,entryFile:$('#newentry').value}));$('#newbot').close();$('#newbotform').reset();created=true;line('Created profile: '+cfg().name+' → '+cfg().dir,'h')}catch(e){line('✖ '+e.message);$('#newbot').close()}finally{setBusy(false)}if(created){if(cfg().host)run('prepare',{});else line('Profile saved. Set your server connection, then use Prepare bot files.','w')}};
-function updateRemoval(){const mode=$('#removemode').value;$('#removefileswarning').hidden=mode!=='delete';$('#removenote').textContent=mode==='profile'?'This only forgets the bot in this panel. It can keep running on the server.':mode==='uninstall'?'Stops and removes this bot from PM2 and its saved startup list. Bot files stay on the server.':'Stops and removes this bot from PM2, then deletes its install folder. File deletion is restricted to a bot subfolder inside the SSH user home.';$('#removesubmit').disabled=busy||$('#removeconfirm').value!==bots.find(b=>b.id===botId)?.app||(mode==='delete'&&!$('#removefilesconfirm').checked)}
-$('#removebot').onclick=async()=>{if(busy||!botId)return;setBusy(true);statusCtl?.abort();try{const c=await save();removalRevision=c.removalRevision;const b=bots.find(b=>b.id===botId);$('#removebotform').reset();$('#removetarget').textContent=b.name+' · PM2: '+b.app+' · Folder: '+b.dir;$('#removeconfirm').placeholder=b.app;$('#removebotdialog').showModal()}catch(e){line('✖ '+e.message)}finally{setBusy(false);updateRemoval()}};
-$('#removemode').onchange=updateRemoval;$('#removeconfirm').oninput=updateRemoval;$('#removefilesconfirm').onchange=updateRemoval;
-$('#cancelremove').onclick=()=>{if(!busy)$('#removebotdialog').close()};$('#removebotdialog').oncancel=e=>{if(busy)e.preventDefault()};
-$('#removebotform').onsubmit=async e=>{e.preventDefault();if(busy)return;const name=cfg().name,payload={action:'remove',id:botId,revision:removalRevision,mode:$('#removemode').value,confirmation:$('#removeconfirm').value,deleteFilesConfirmed:$('#removefilesconfirm').checked};setBusy(true);statusCtl?.abort();document.querySelectorAll('#removebotform input,#removebotform select,#removebotform button').forEach(e=>e.disabled=true);line('▶ Removing '+name+' ('+payload.mode+')','h');try{const c=await api('/api/profiles',payload);if(c.output)put(c.output);applyConfig(c);$('#removebotdialog').close();line('✔ Removed profile: '+name,'o')}catch(e){if(e.output)put(e.output);line('✖ '+e.message)}finally{if(buf){line(buf);buf=''}setBusy(false);document.querySelectorAll('#removebotform input,#removebotform select,#removebotform button').forEach(e=>e.disabled=false);updateRemoval()}st()};
-async function run(a,p){
-  if(busy||!botId)return;setBusy(true);statusCtl?.abort();ctl=new AbortController();
-  line('▶ ['+cfg().name+'] '+a+(p.cmd?': '+p.cmd:'')+'   '+new Date().toLocaleTimeString(),'h');
-  try{const r=await post('/api/run',{action:a,params:p,cfg:cfg()},{signal:ctl.signal}),rd=r.body.getReader(),td=new TextDecoder();
-    for(;;){const{done,value}=await rd.read();if(done)break;put(td.decode(value,{stream:true}))}}
-  catch(e){put(e.name==='AbortError'?'\n■ Cancelled\n':'\n✖ '+e.message+'\n')}
-  if(buf){line(buf);buf=''}
-  setBusy(false);
-  if(/^(start|stop|restart|deploy|code|setup|cmds|redeploy|solo)$/.test(a))st();
-}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
-  if(a==='abort'){ctl&&ctl.abort();return}
-  if(CF[a]&&!confirm(CF[a]))return;
-  const p=a==='logs'||a==='follow'?{lines:$('#ll').value,filter:$('#lf').value,err:$('#le').checked}:a==='custom'?{cmd:$('#cmd').value}:{};
-  run(a,p)});
-$('#cmd').addEventListener('keydown',e=>{if(e.key==='Enter')run('custom',{cmd:e.target.value})});
-$('#cl').onclick=()=>T.replaceChildren();
-$('#cp').onclick=()=>navigator.clipboard.writeText(T.innerText);
-$('#sv').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([T.innerText],{type:'text/plain'}));a.download='bot-output-'+Date.now()+'.txt';a.click()};
-
-const base=()=>{const d=cfg().dir.replace(/\/+$/,''),u=$('#ud').value.trim().replace(/\/+$/,'');return u?(u[0]==='/'?u:d+'/'+u):d};
-async function upload(files,target){
-  if(busy||!botId||!files.length)return;setBusy(true);statusCtl?.abort();ctl=new AbortController();
-  for(const f of files){
-    line('▶ upload '+f.name+'   '+new Date().toLocaleTimeString(),'h');
-    try{const r=await fetch('/api/upload',{method:'POST',signal:ctl.signal,body:f,headers:{'X-Panel':'1','Content-Type':'application/octet-stream','X-Cfg':encodeURIComponent(JSON.stringify(cfg())),'X-Target':encodeURIComponent(target(f))}}),rd=r.body.getReader(),td=new TextDecoder();
-      for(;;){const{done,value}=await rd.read();if(done)break;put(td.decode(value,{stream:true}))}}
-    catch(e){put(e.name==='AbortError'?'\n■ Cancelled\n':'\n✖ '+e.message+'\n');break}
-    if(buf){line(buf);buf=''}}
-  setBusy(false)}
-$('#envpick').onclick=()=>$('#envf').click();
-$('#envf').onchange=e=>{upload([...e.target.files],()=>cfg().dir.replace(/\/+$/,'')+'/.env');e.target.value=''};
-$('#pick').onclick=()=>$('#upf').click();
-$('#upf').onchange=e=>{upload([...e.target.files],f=>base()+'/'+f.name);e.target.value=''};
-const dz=$('#dz');['dragover','dragenter'].forEach(v=>dz.addEventListener(v,()=>dz.classList.add('on')));
-['dragleave','drop'].forEach(v=>dz.addEventListener(v,()=>dz.classList.remove('on')));
-dz.addEventListener('drop',e=>upload([...e.dataTransfer.files],f=>base()+'/'+f.name));
-['dragover','drop'].forEach(v=>addEventListener(v,e=>e.preventDefault()));
-function save(){const snapshot=cfg();const task=saveQueue.catch(()=>{}).then(async()=>{const c=await api('/api/config',snapshot);if(botId===snapshot.botId){bots=c.bots;renderBots();$('#saved').textContent='Saved '+new Date().toLocaleTimeString();$('#nm').textContent=cfg().name||'No bots saved'}return c});saveQueue=task;return task}
-document.addEventListener('change',e=>{if(e.target.dataset.k)save().catch(e=>{line('✖ Settings not saved: '+e.message);$('#saved').textContent='Not saved — '+e.message})});
-
-const fm=ms=>{const s=ms/1e3|0,d=s/86400|0,h=s%86400/3600|0,m=s%3600/60|0;return d?d+'d '+h+'h':h?h+'h '+m+'m':m+'m'};
-async function st(){
-  const c=cfg();if(!botId||!c.host||busy||statusCtl)return;let j;
-  const controller=statusCtl=new AbortController(),timer=setTimeout(()=>controller.abort(),50000);
-  try{j=await(await post('/api/status',{cfg:c},{signal:controller.signal})).json()}
-  catch(e){if(busy)return;j={error:e.name==='AbortError'?'Status check timed out. Use Test connection for details.':'Cannot reach the local panel. Check that its launcher is running.'}}
-  finally{clearTimeout(timer);statusCtl=null}
-  if(busy||JSON.stringify(c)!==JSON.stringify(cfg()))return;
-  const set=(k,v,cl)=>{const e=$('#s-'+k);e.textContent=v;e.className=cl||''};
-  if(j.error){set('state','Unreachable','e');$('#sub').textContent=j.error;fleetApps=null;renderBots();return}
-  fleetApps=j.apps||[];renderBots();
-  const a=j.app;$('#sub').textContent=c.user+'@'+c.host+', '+j.up;
-  set('state',a?a.status:'Not found',a?(a.status==='online'?'o':'e'):'w');
-  set('up',a&&a.status==='online'?fm(Date.now()-a.uptime):'-');set('mem',a?(a.mem/1048576).toFixed(0)+' MB':'-');
-  set('cpu',a?a.cpu+'%':'-');set('rs',a?a.restarts:'-');set('load',j.load);set('ram',j.mem);set('disk',j.disk);
-}
-setInterval(()=>{if($('#auto').checked)st()},30000);
-setBusy(true);
-fetch('/api/config').then(r=>r.json()).then(c=>{if(!c.bots)throw new Error('Restart the panel terminal to load multi-bot support.');applyConfig(c);setBusy(false);
-  line(c.host?'Ready. Select a bot or use Add bot to prepare another.':'Fill in the server details in the sidebar, then click "Test connection". Settings save automatically.','h');st()}).catch(e=>line('✖ '+e.message));
-</script>
+<script src="/panel-ui.js"></script>
+<script src="/dashboard.js"></script>
 </body></html>

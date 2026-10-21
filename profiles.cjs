@@ -43,6 +43,18 @@ function add(store, input) {
   const bot = { id: randomUUID(), name, app: slug, dir: home + '/bots/' + slug, repo: String(input.repo || '').trim(), branch: 'main', buildCmd: 'npm run build --if-present', cmdSyncCmd: '', localEnv: '', localBot: '', entryFile: String(input.entryFile || '').trim(), managed: true };
   next.bots.push(bot); next.activeBotId = bot.id; validate(next); return next;
 }
+function duplicate(store, input) {
+  if (typeof input.id !== 'string' || !input.id) throw new Error('Choose a bot profile to duplicate.');
+  const source = store.bots.find(bot => bot.id === input.id);
+  if (!source) throw new Error('Unknown bot profile.');
+  if (typeof input.name !== 'string' || !input.name.trim()) throw new Error('Enter a bot name.');
+  for (const field of ['repo', 'entryFile']) {
+    if (Object.hasOwn(input, field) && typeof input[field] !== 'string') throw new Error(field + ' must be a string.');
+  }
+  const next = add(store, { name: input.name, ...pick(source, ['repo', 'entryFile']), ...pick(input, ['repo', 'entryFile']) });
+  Object.assign(next.bots.find(bot => bot.id === next.activeBotId), pick(source, ['branch', 'buildCmd', 'cmdSyncCmd']));
+  validate(next); return next;
+}
 function repository(file, defaults) {
   const read = () => {
     let raw;
@@ -66,4 +78,4 @@ function remove(store, id) {
   if (next.activeBotId === id) next.activeBotId = next.bots[0]?.id || '';
   validate(next); return next;
 }
-module.exports = { normalize, active, validate, update, add, remove, repository };
+module.exports = { normalize, active, validate, update, add, duplicate, remove, repository };

@@ -2,6 +2,8 @@
 
 The panel persists state locally in `config.json`. `profiles.cjs` owns migration, selection, validation, and writes. The browser **auto-saves settings on `change` events**, not each keystroke; leaving a field usually triggers the save.
 
+The save indicator at the top of the sidebar shows saving, saved, and failed states. Expand **Build commands & local files** to edit build/sync commands, the managed entry file, `localEnv`, and `localBot`. If initial settings loading fails, **Retry loading settings** attempts to load them again after the local panel is available.
+
 > `config.json` is a credential-bearing **runtime file**. The example below is illustrative; do not replace your working config unless you mean to reconfigure the panel.
 
 For a new installation, copy the root `config.example.json` to `config.json`, then enter connection and bot settings in the sidebar. The example contains no host, token, SSH-key path, or local upload paths. The included `.env.example` illustrates common bot variables only; the panel does not read it. Both actual configuration and bot environment files are ignored by Git.
@@ -57,7 +59,7 @@ The `activeBotId` points to an existing `bots[].id` and identifies which profile
 | Field | Meaning | Behavior |
 | --- | --- | --- |
 | `id` | Stable profile identifier | Legacy profile uses `legacy`; new profiles get UUIDs. Not editable via normal config updates. |
-| `managed` | Which PM2 launch strategy to use | Existing migrated profile is `false`; newly added profiles are `true`. |
+| `managed` | Which PM2 launch strategy to use | Existing migrated profile is `false`; newly added or duplicated profiles are `true`. |
 | `name` | Dashboard display name | Required, arbitrary nonempty display text. |
 | `repo` | Git repository URL | Empty is supported for bots deployed without Git. |
 | `branch` | Git branch to clone/pull | New bots default to `main`. |
@@ -79,10 +81,18 @@ Unknown `botId` values are rejected. Attempts to set arbitrary fields (such as `
 2. Resolves name/folder collisions by appending `-2`, `-3`, etc.
 3. Creates a new UUID for `id` and marks the bot `managed: true`.
 4. Uses `/home/<ssh-user>/bots/<slug>` or `/root/bots/<slug>` for the install folder.
-5. Saves the new bot and makes it the active selection.
+5. Makes the new bot the active selection; the API persists the resulting store.
 6. In the **frontend**, if a host has been configured, a follow-up **prepare** action starts. Preparation errors do not remove the locally saved profile.
 
 Editing one bot's repo, build command, local upload paths, PM2 name, and install directory leaves the other bots' values untouched.
+
+## Duplicating a setup
+
+Select a saved bot and choose **Duplicate setup**. The browser saves current edits before opening the dialog. Choose a name and optionally change the repository URL or entry file, then submit.
+
+`profiles.duplicate(store, { id, name, repo?, entryFile? })` requires an explicit existing source ID and a nonempty string name. Optional overrides must be strings; empty strings clear those two fields. It reads the saved source and copies only `repo`, `branch`, `buildCmd`, `cmdSyncCmd`, and `entryFile` into a new profile. UUID, PM2 app name, install folder, and `managed: true` are generated through the normal new-profile path, including collision suffixes. `localEnv` and `localBot` are empty. Shared connection settings stay shared, and no SSH credentials become per-bot fields. The source profile is preserved.
+
+The API saves the new profile and selects it. Duplication does not connect to the VM, prepare a folder, copy bot files, copy `.env` credentials, or start a bot. Use **Prepare bot files**, upload this bot's own credentials, and deploy separately. This differs from **Add bot → Create & prepare**, which attempts preparation when a host is configured.
 
 ## Removing a profile
 

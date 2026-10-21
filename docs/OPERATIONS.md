@@ -8,7 +8,7 @@ Operations below describe **what the supplied code runs**. Most buttons act on t
 
 1. Set **Host/IP**, **SSH user**, **Port**, and **SSH private-key file** in the Windows sidebar.
 2. Press **Test connection**. This checks remote OS version, remote identity, and whether `node`, `npm`, `pm2`, and `git` are installed.
-3. Confirm repository URL, branch, install folder, PM2 app name, build command, and (optionally) slash-command sync command.
+3. Confirm repository URL, branch, install folder, and PM2 app name. Expand **Build commands & local files** for the build command, optional slash-command sync, entry file, and Windows upload paths.
 4. Press **Initial setup**. This prepares memory if needed, installs OS requirements/Node.js 22/PM2, sets up PM2 startup, and clones/updates the repository or creates its folder.
 5. **Upload .env** credentials required by the bot (either through file picker or configured local file path). A placeholder `.env` is not a working credentials file.
 6. Press **Pull & deploy** (Git) or **Deploy current files** (non-Git). Monitor streamed output through the final success/failure line.
@@ -22,6 +22,13 @@ Operations below describe **what the supplied code runs**. Most buttons act on t
 4. Verify its **Install folder**, **PM2 app name**, build/sync commands, and managed app entry file.
 5. Upload **that bot's own `.env`**, then deploy. Switching to another profile does not stop this one.
 6. Watch RAM/CPU with **Disk & memory**, the dashboard status cards, and **PM2 status** when running multiple bots.
+
+### Duplicate a bot's setup
+
+1. Select the source bot and choose **Duplicate setup**. Current sidebar edits are saved first.
+2. Enter a name; the dialog starts with the source repository and entry file, which you can change or clear.
+3. Submit **Duplicate setup**. The panel saves and selects a new managed profile with a new UUID, PM2 app name, and install folder. Repository, branch, build, command-sync, and entry-file settings are copied; the source remains unchanged.
+4. Review the new target shown above the status cards. No SSH action runs, no bot files or `.env` are copied, and Windows `.env`/source paths are cleared. Set those local paths if needed, choose **Prepare bot files**, upload separate bot credentials, then deploy.
 
 ### Deploy changes from Git
 
@@ -40,7 +47,7 @@ Operations below describe **what the supplied code runs**. Most buttons act on t
 
 ### Remove an old bot
 
-1. Select the bot and click **Remove bot**. Verify its display name, PM2 app name, and install folder in the dialog.
+1. Select the bot and click **Remove**. Verify its display name, PM2 app name, and install folder in the **Remove bot** dialog.
 2. Choose **Saved profile only** to forget the profile while preserving the running process and files; this works offline. Choose **Profile and PM2 process** to stop/remove the exact app, update PM2's saved startup list, and keep bot data.
 3. To delete files as well, choose **Profile, PM2 process and all bot files** and check the explicit deletion acknowledgement. This removes the entire install folder, including `.env`, databases, and the folder's `backups/`. Make an independent backup first.
 4. Type the exact PM2 app name and submit. Other profiles/processes are preserved. Removing the last bot is supported; shared settings remain and **Add bot** stays available.
@@ -60,7 +67,8 @@ PM2 uninstall checks the process list, removes the app if present, and uses `pm2
 | **Restart** | `pm2 restart APP --update-env; pm2 status` | Requires existing PM2 app; unlike Start, it does not regenerate config. |
 | **Stop others & start** | For each **other saved bot** app name: `pm2 describe` then `pm2 stop` if present; `pm2 save`; start selected app; `pm2 save` | May leave others stopped if startup fails; unrelated PM2 apps not in profiles are not enumerated. |
 | **PM2 status** | `pm2 status`, then first 30 lines of `pm2 describe APP` | Diagnostic only. |
-| **Remove bot** | Opens the scope/confirmation dialog described above | Profile-only by default; server uninstall and permanent file deletion are separate explicit choices. |
+| **Duplicate setup** | Copies selected deployment preferences into a new selected managed profile | Starts no SSH/preparation action; copies no credentials, bot files, or local upload paths. |
+| **Remove** | Opens the scope/confirmation dialog described above | Profile-only by default; server uninstall and permanent file deletion are separate explicit choices. |
 
 ### Deploy / repository
 
@@ -102,11 +110,25 @@ PM2 uninstall checks the process list, removes the app if present, and uses `pm2
 | **Follow live** | `timeout 900 pm2 logs APP --raw --lines N` (up to **15 minutes**), optional error-only/grep filter. |
 | **Flush logs** | `pm2 flush APP` deletes PM2's existing log history for that app; confirmation shown in browser. |
 | **Log line count** | Select 100/200/500/1000/3000 in frontend. Default is 200. |
-| **Errors only** | Requests `--err` from PM2 logs. |
-| **Filter text** | Adds case-insensitive line filtering with `grep -i --line-buffered`. |
-| **Cancel** | Aborts browser request; server listens for response closure and tries to kill the running child. |
-| **Copy / Save / Clear** | Operate on **browser console output**, not on server-side logs. Save downloads a local text file. |
-| **Auto-refresh** | When checked, tries a status refresh every 30 seconds; it avoids overlapping checks and busy actions. |
+| **Errors only** in Logs | Requests `--err` from PM2 logs. Applies when Fetch logs/Follow live starts. |
+| **Filter remote log text** | Adds case-insensitive line filtering with `grep -i --line-buffered`. Applies to the remote log request. |
+| **Cancel action** | Enabled during cancellable actions/uploads. Aborts the browser request; the server listens for response closure and tries to kill the running child. |
+| **Search output / Errors only** in Output | Filter lines already retained in the browser without discarding them or changing remote logs. Error matching uses error-like text, not a separate stderr channel. |
+| **Follow output / Jump to latest** | Follow scrolls new output when near the bottom; scrolling up lets you review earlier lines. Jump returns to the latest line and enables following. |
+| **Copy all / Save all** | Include every retained browser-output line, even when filters hide some. Save downloads a local text file. At most 5,000 lines are retained; older lines are dropped. |
+| **Clear** | Removes retained browser output, without flushing PM2 logs. |
+| **Find a bot** | Case-insensitive search of saved profile display names and PM2 app names; does not change selection or start/stop bots. |
+| **Refresh now** | Requests dashboard status immediately when a bot/host is set and the panel is available for a status check. |
+| **Refresh every 30s** | When checked, tries a status refresh every 30 seconds; it avoids overlapping checks, busy actions, and open dialogs. |
+| **Retry loading settings** | Appears after initial loading fails. Retry once the local panel is running; bot actions remain unavailable until settings load. |
+
+### Reading status and activity
+
+**All bots** counts only the saved profiles, including profiles hidden by search. A successful check counts an exact PM2 app match with state `online` as online; missing or other states count as offline. Until a usable status result is available, profiles are unchecked. Unrelated PM2 processes do not enter these counts.
+
+The status note shows **Checking status** while a request runs, then **Last checked** or **Last check failed** with a timestamp. Failed checks clear old metric cards and mark the selected bot unreachable. Editing connection fields or the PM2 app, or switching the selected bot, clears readings until another check. These figures describe PM2 and VM resources; they do not establish that a bot is connected to Discord or ready to serve commands.
+
+The activity bar shows the running action and bot plus elapsed time, then **Completed**, **Failed**, **Cancelled**, or **Incomplete — check output**. Actions and uploads require the final streamed `✔ Done` or `✖ Failed (exit N)` result to establish their outcome; an HTTP 200 or an earlier success message is insufficient. A stream that ends without the final result is incomplete. Inspect output and remote state before retrying, because cancellation, failure, or a dropped connection does not roll back changes that already ran.
 
 ## Low-memory Oracle VMs
 

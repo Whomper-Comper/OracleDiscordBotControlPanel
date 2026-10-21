@@ -260,6 +260,10 @@ return http.createServer(async (req, res) => {
   if (host !== `localhost:${req.socket.localPort}` && host !== `127.0.0.1:${req.socket.localPort}`) { res.writeHead(403); return res.end('Forbidden'); }
   if (req.method === 'GET') {
     if (u === '/api/config') return json(res, configView(store.read()));
+    if (u === '/panel-ui.js' || u === '/dashboard.js') {
+      res.writeHead(200, { 'Content-Type': 'text/javascript;charset=utf-8' });
+      return res.end(fs.readFileSync(path.join(__dirname, u.slice(1))));
+    }
     res.writeHead(200, { 'Content-Type': 'text/html;charset=utf-8' });
     return res.end(fs.readFileSync(path.join(__dirname, 'index.html')));
   }
@@ -319,6 +323,7 @@ return http.createServer(async (req, res) => {
       } finally { removing = false; }
     }
     if (b.action === 'add') next = profiles.add(next, b);
+    else if (b.action === 'duplicate') next = profiles.duplicate(next, b);
     else if (b.action === 'select') { profiles.active(next, b.id); next.activeBotId = b.id; }
     else throw new Error('Unknown profile action');
     store.write(next); return json(res, configView(next));

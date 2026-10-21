@@ -31,14 +31,14 @@ This repository contains the panel source and safe examples. Actual `config.json
 
 ## Start the panel
 
-1. Clone or download this repository into a local Windows directory. For a fresh installation, copy `config.example.json` to `config.json` to start with a managed example bot. Keep an existing `config.json` when updating; it contains your working profiles and credentials.
+1. Clone or download the entire repository into a local Windows directory. Keep `index.html`, `dashboard.js`, and `panel-ui.js` alongside `server.cjs` and `profiles.cjs`; the browser needs both JavaScript files. For a fresh installation, copy `config.example.json` to `config.json` to start with a managed example bot. Keep an existing `config.json` when updating; it contains your working profiles and credentials.
 2. Double-click `Launch-Control-Panel.cmd` or open CMD in that folder and run `node server.cjs`. Without a configuration file, the panel uses generic defaults and saves settings when you edit them.
 3. Browse to **http://localhost:4321**. The launcher opens this URL automatically.
 4. Fill out the **Server** fields (host/IP, SSH user, port, and **absolute Windows path to your private SSH key**). Values save to `config.json` when fields change; check the saved indicator.
-5. Select **Test connection**. Configure the **selected bot**'s repository, folder, PM2 app name, and optional build/sync commands.
+5. Select **Test connection**. Configure the **selected bot**'s repository, folder, and PM2 app name. Expand **Build commands & local files** for optional build/sync commands, the entry file, and Windows upload paths.
 6. To prepare an unconfigured VM, run **Initial setup**; to add a bot to an already-configured VM, use **Add bot → Create & prepare** (or **Prepare bot files**).
 7. Upload the bot's `.env` credentials, if required by that bot; then choose **Pull & deploy**, **Deploy current files**, or **Upload code & deploy** according to where its code comes from.
-8. Check **PM2 status** and **Fetch logs**. Automatic status refresh runs every 30 seconds while enabled.
+8. Check **PM2 status** and **Fetch logs**. Use **Refresh now** for dashboard readings, or leave automatic refresh enabled for a check every 30 seconds. The status note shows when the last check completed or failed.
 
 **After changing backend files:** close the old panel terminal with `Ctrl+C`, launch it again, and refresh the browser. A second copy cannot use port 4321 while the first is running.
 
@@ -74,9 +74,18 @@ The **browser** controls the local HTTP service; the **local Node.js service** i
 
 For exact behavior of generated launch files, see [Configuration](docs/CONFIGURATION.md).
 
+## Dashboard controls
+
+- **All bots** searches saved profiles by display name or PM2 app name. Counts cover saved profiles only: online, offline, or unchecked. Unrelated PM2 processes are not included.
+- **Duplicate setup** saves and selects a new managed profile with its own UUID, PM2 name, and install folder. It copies repository, branch, build command, command-sync command, and entry file; the dialog can change the name, repository, and entry file. Local `.env`/source paths are cleared. It copies no bot files or `.env` credentials and starts no SSH or preparation action. Use **Prepare bot files**, upload separate credentials, then deploy when ready.
+- **Refresh now** and the freshness note apply to PM2/server measurements. Failed checks clear previous readings; changing the connection, selected bot, or PM2 app also clears readings until another check. These are not Discord connectivity or application-health checks.
+- The activity bar shows the action, selected bot, elapsed time, and final **Completed**, **Failed**, **Cancelled**, or **Incomplete — check output** result. HTTP 200 alone is not a successful deployment; completion depends on the final streamed result.
+- Output has local search, **Errors only**, **Follow output**, and **Jump to latest** controls. **Copy all** and **Save all** include all retained output, including lines hidden by filters. At most 5,000 lines are retained in the browser; **Clear** removes them. Filters do not change remote PM2 logs.
+- If settings cannot load, start/restart the local panel and use **Retry loading settings**. The save indicator near the top of the sidebar shows pending saves and failures.
+
 ## Remove old bots
 
-Select the old bot, click **Remove bot**, and choose the scope:
+Select the old bot, click **Remove**, and choose the scope in the **Remove bot** dialog:
 
 | Choice | Effect |
 | --- | --- |
@@ -139,7 +148,7 @@ See [Operations](docs/OPERATIONS.md) for steps and [Security](docs/SECURITY.md) 
 node --test
 ```
 
-These are **local regression tests**, not live Oracle/Discord integration tests. They cover profiles, removal, generated PM2 configs, HTTP actions, process output/cancellation, deployment scripts, and port conflicts. Removal shell tests use disposable local folders and Git Bash on Windows (Bash on Linux/macOS); they skip if Bash is absent. See [Development](docs/DEVELOPMENT.md).
+These are **local regression tests**, not live Oracle/Discord integration tests. They cover profiles, setup duplication, removal, generated PM2 configs, HTTP routes, fleet/output helpers, streamed action outcomes, process cancellation, deployment scripts, and port conflicts. Removal shell tests use disposable local folders and Git Bash on Windows (Bash on Linux/macOS); they skip if Bash is absent. See [Development](docs/DEVELOPMENT.md).
 
 ## Handling secrets
 
