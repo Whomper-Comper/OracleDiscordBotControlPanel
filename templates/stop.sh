@@ -1,0 +1,1 @@
+pm2 stop "$APP"; pm2 save; pm2 status

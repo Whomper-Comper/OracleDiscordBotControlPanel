@@ -43,7 +43,7 @@ Operations below describe **what the supplied code runs**. Most buttons act on t
 
 **Deploy current files** runs steps 1 and 3–6 without any Git pull. It still installs dependencies.
 
-**Upload code & deploy** creates a local `.tgz`, excludes `node_modules`, `.git`, `dist`, `.env`, and `*.db*`, uploads it to `/tmp/bot-upload.tgz`, extracts it **over** the remote folder, removes the remote archive, then runs the **no-pull deployment**. Old remote files absent from the new archive are **not** automatically deleted. The local archive is stored at a fixed filename under the local temp directory and the code does not explicitly remove it afterwards.
+**Upload code & deploy** creates a local `.tgz`, excludes `node_modules`, `.git`, `dist`, `.env`, and `*.db*`, uploads it to a unique `/tmp/bot-panel-<uuid>.tgz`, extracts it **over** the remote folder, removes the remote archive, then runs the **no-pull deployment**. Old remote files absent from the new archive are **not** automatically deleted. The Rust backend uses unique local and remote temporary filenames and cleans local archives on scope exit. A remote EXIT trap cleans after extraction begins; an interrupted SCP may leave a partial archive.
 
 ### Remove an old bot
 
@@ -151,14 +151,14 @@ First compare the precise key, user, and port used by the panel. This is a **Win
 ssh -vvv -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i "C:\Users\Example\.ssh\oracle.key" -T opc@YOUR_VM "echo SSH_OK"
 ```
 
-A successful `SSH_OK` proves the key can authenticate in noninteractive mode. If the panel still fails, check the active bot/sidebar values (the browser sends current values directly), the `config.json` saved value, and which copy of `server.cjs` is running. Restart the old panel process before retesting. Never paste SSH **private key contents** into the dashboard; the field is for its **local filename**.
+A successful `SSH_OK` proves the key can authenticate in noninteractive mode. If the panel still fails, check the active bot/sidebar values (the browser sends current values directly), the `config.json` saved value, and which copy of `oracle-bot-panel.exe` is running. Restart the old panel process before retesting. Never paste SSH **private key contents** into the dashboard; the field is for its **local filename**.
 
 ### VM is reachable but PM2 status is blank/unreachable
 
 - **Test connection** confirms SSH and tools.
 - **PM2 status** checks PM2 itself.
 - Status uses `pm2 jlist` plus tagged shell output; its parser can fail if expected output is missing or malformed.
-- Status times out in **45 seconds** on the server and is aborted after **50 seconds** by the browser; longer setup/deploy commands have no overall timeout in `run()`.
+- Status times out in **45 seconds** on the server and is aborted after **50 seconds** by the browser; longer setup/deploy commands have no overall timeout in `process::run`.
 
 ### Exit code 137 / possible out-of-memory
 

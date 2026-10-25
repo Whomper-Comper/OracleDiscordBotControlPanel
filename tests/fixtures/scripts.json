@@ -1,0 +1,1354 @@
+[
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "test",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\necho \"Connected as $(whoami)@$(hostname)\"; . /etc/os-release; echo \"$PRETTY_NAME, kernel $(uname -r)\"\nfor tool in node npm pm2 git; do\n  if command -v \"$tool\" >/dev/null 2>&1; then echo \"$tool: installed\";\n  else echo \"⚠ $tool: not installed yet — run Initial setup\"; fi\ndone\necho \"✔ SSH connection works\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "setup",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n\necho \"• System packages + Node.js 22 LTS\"\nif [ \"$PM\" = dnf ]; then\n  echo \"• Installing system packages (one download at a time; optional dependencies disabled)\"\n  sudo dnf -y --setopt=max_parallel_downloads=1 --setopt=install_weak_deps=False install git tar curl gcc-c++ make\n  curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -\n  sudo dnf -y --setopt=max_parallel_downloads=1 --setopt=install_weak_deps=False install nodejs\nelse\n  sudo apt-get update -y\n  sudo apt-get install -y git curl build-essential ca-certificates\n  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -\n  sudo apt-get install -y nodejs\nfi\necho \"• PM2 + boot autostart\"; sudo env \"NODE_OPTIONS=${NODE_OPTIONS:-}\" npm_config_jobs=1 MAKEFLAGS=-j1 npm i -g pm2@latest --no-audit --no-fund\nsudo env PATH=\"$PATH:/usr/bin\" pm2 startup systemd -u \"$USER\" --hp \"$HOME\" >/dev/null || true\nU='https://example.test/bot.git'\nif [ -n \"$U\" ]; then\n  if [ -d \"$DIR/.git\" ]; then git -C \"$DIR\" remote set-url origin \"$U\"; git -C \"$DIR\" pull --ff-only origin 'main'; else mkdir -p \"$(dirname \"$DIR\")\"; git clone -b 'main' \"$U\" \"$DIR\"; fi\nelse mkdir -p \"$DIR\"; fi\n\nPANEL_DIR=\"$HOME/.bot-panel/test-id\"\nmkdir -p \"$PANEL_DIR\"\nprintf '%s' 'Ly8gR2VuZXJhdGVkIGJ5IE9yYWNsZSBib3QgcGFuZWwuIFJlcG9zaXRvcnkgZmlsZXMgYXJlIGxlZnQgaW50YWN0Lgpjb25zdCBmcyA9IHJlcXVpcmUoJ2ZzJyk7CmNvbnN0IHBhdGggPSByZXF1aXJlKCdwYXRoJyk7CmNvbnN0IGRpciA9ICIvaG9tZS9vcGMvYm90cy9tdXNpYyI7CmNvbnN0IG5hbWUgPSAibXVzaWMtYm90IjsKY29uc3QgZW50cnkgPSAic3JjL21haW4uanMiOwpsZXQgYXBwOwpjb25zdCBzb3VyY2UgPSBwYXRoLmpvaW4oZGlyLCAnZWNvc3lzdGVtLmNvbmZpZy5janMnKTsKaWYgKGVudHJ5KSBhcHAgPSB7IHNjcmlwdDogZW50cnkgfTsKZWxzZSBpZiAoZnMuZXhpc3RzU3luYyhzb3VyY2UpKSB7CiAgY29uc3QgYXBwcyA9IHJlcXVpcmUoc291cmNlKS5hcHBzOwogIGlmICghQXJyYXkuaXNBcnJheShhcHBzKSB8fCAhYXBwcy5sZW5ndGgpIHRocm93IG5ldyBFcnJvcignUmVwb3NpdG9yeSBlY29zeXN0ZW0gaGFzIG5vIGFwcHMuIFNldCBhbiBlbnRyeSBmaWxlIGluIHRoZSBwYW5lbC4nKTsKICBhcHAgPSBhcHBzLmZpbmQoYSA9PiBhLm5hbWUgPT09IG5hbWUpIHx8IChhcHBzLmxlbmd0aCA9PT0gMSA/IGFwcHNbMF0gOiBudWxsKTsKICBpZiAoIWFwcCkgdGhyb3cgbmV3IEVycm9yKCdSZXBvc2l0b3J5IGRlZmluZXMgbXVsdGlwbGUgYXBwcy4gU2V0IGFuIGVudHJ5IGZpbGUgb3IgbWF0Y2ggdGhlIFBNMiBhcHAgbmFtZS4nKTsKfSBlbHNlIGFwcCA9IHsgc2NyaXB0OiAnbnBtJywgYXJnczogJ3N0YXJ0JywgaW50ZXJwcmV0ZXI6ICdub25lJyB9Owptb2R1bGUuZXhwb3J0cyA9IHsgYXBwczogW3sgLi4uYXBwLCBuYW1lLCBjd2Q6IGRpciB9XSB9Owo=' | base64 -d > \"$PANEL_DIR/ecosystem.config.cjs\"\n\ncd \"$DIR\"\nif [ ! -e .env ]; then\n  (umask 077; if [ -f .env.example ]; then cp .env.example .env; else printf '%s\\n' '# Add the environment variables required by this bot.' > .env; fi)\n  chmod 600 .env\n  echo \"• Created .env; upload this bot's credentials before deploying\"\nfi\nmkdir -p backups\necho \"✔ Bot folder and launch configuration ready: $DIR ($APP)\"\n\necho \"node $(node -v) | pm2 $(pm2 -v)\"; echo \"✔ Next: Upload .env, then Pull & deploy\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "sysupdate",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nif [ \"$PM\" = dnf ]; then sudo dnf -y upgrade --refresh; else sudo apt-get update && sudo apt-get -y upgrade; fi\n[ -f /var/run/reboot-required ] && echo \"⚠ Reboot required\"; true"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "memory",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "npmupdate",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n\nsudo env \"NODE_OPTIONS=${NODE_OPTIONS:-}\" npm_config_jobs=1 MAKEFLAGS=-j1 npm i -g npm@latest pm2@latest --no-audit --no-fund && pm2 update; echo \"npm $(npm -v) | pm2 $(pm2 -v)\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "deploy",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\ncd \"$DIR\"\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n\ngit pull --ff-only origin 'main'\necho \"• Installing dependencies\"\nif [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then\n  npm ci --include=dev --no-audit --no-fund\nelse\n  npm install --include=dev --no-audit --no-fund\nfi\necho \"• Building\"; npm run build\necho \"• Command sync\"; npm run sync\necho \"• Restarting bot\"; \nPANEL_DIR=\"$HOME/.bot-panel/test-id\"\nmkdir -p \"$PANEL_DIR\"\nprintf '%s' 'Ly8gR2VuZXJhdGVkIGJ5IE9yYWNsZSBib3QgcGFuZWwuIFJlcG9zaXRvcnkgZmlsZXMgYXJlIGxlZnQgaW50YWN0Lgpjb25zdCBmcyA9IHJlcXVpcmUoJ2ZzJyk7CmNvbnN0IHBhdGggPSByZXF1aXJlKCdwYXRoJyk7CmNvbnN0IGRpciA9ICIvaG9tZS9vcGMvYm90cy9tdXNpYyI7CmNvbnN0IG5hbWUgPSAibXVzaWMtYm90IjsKY29uc3QgZW50cnkgPSAic3JjL21haW4uanMiOwpsZXQgYXBwOwpjb25zdCBzb3VyY2UgPSBwYXRoLmpvaW4oZGlyLCAnZWNvc3lzdGVtLmNvbmZpZy5janMnKTsKaWYgKGVudHJ5KSBhcHAgPSB7IHNjcmlwdDogZW50cnkgfTsKZWxzZSBpZiAoZnMuZXhpc3RzU3luYyhzb3VyY2UpKSB7CiAgY29uc3QgYXBwcyA9IHJlcXVpcmUoc291cmNlKS5hcHBzOwogIGlmICghQXJyYXkuaXNBcnJheShhcHBzKSB8fCAhYXBwcy5sZW5ndGgpIHRocm93IG5ldyBFcnJvcignUmVwb3NpdG9yeSBlY29zeXN0ZW0gaGFzIG5vIGFwcHMuIFNldCBhbiBlbnRyeSBmaWxlIGluIHRoZSBwYW5lbC4nKTsKICBhcHAgPSBhcHBzLmZpbmQoYSA9PiBhLm5hbWUgPT09IG5hbWUpIHx8IChhcHBzLmxlbmd0aCA9PT0gMSA/IGFwcHNbMF0gOiBudWxsKTsKICBpZiAoIWFwcCkgdGhyb3cgbmV3IEVycm9yKCdSZXBvc2l0b3J5IGRlZmluZXMgbXVsdGlwbGUgYXBwcy4gU2V0IGFuIGVudHJ5IGZpbGUgb3IgbWF0Y2ggdGhlIFBNMiBhcHAgbmFtZS4nKTsKfSBlbHNlIGFwcCA9IHsgc2NyaXB0OiAnbnBtJywgYXJnczogJ3N0YXJ0JywgaW50ZXJwcmV0ZXI6ICdub25lJyB9Owptb2R1bGUuZXhwb3J0cyA9IHsgYXBwczogW3sgLi4uYXBwLCBuYW1lLCBjd2Q6IGRpciB9XSB9Owo=' | base64 -d > \"$PANEL_DIR/ecosystem.config.cjs\"\n\npm2 startOrReload \"$PANEL_DIR/ecosystem.config.cjs\" --only \"$APP\" --update-env; pm2 save\npm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "redeploy",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\ncd \"$DIR\"\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n\ntrue\necho \"• Installing dependencies\"\nif [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then\n  npm ci --include=dev --no-audit --no-fund\nelse\n  npm install --include=dev --no-audit --no-fund\nfi\necho \"• Building\"; npm run build\necho \"• Command sync\"; npm run sync\necho \"• Restarting bot\"; \nPANEL_DIR=\"$HOME/.bot-panel/test-id\"\nmkdir -p \"$PANEL_DIR\"\nprintf '%s' 'Ly8gR2VuZXJhdGVkIGJ5IE9yYWNsZSBib3QgcGFuZWwuIFJlcG9zaXRvcnkgZmlsZXMgYXJlIGxlZnQgaW50YWN0Lgpjb25zdCBmcyA9IHJlcXVpcmUoJ2ZzJyk7CmNvbnN0IHBhdGggPSByZXF1aXJlKCdwYXRoJyk7CmNvbnN0IGRpciA9ICIvaG9tZS9vcGMvYm90cy9tdXNpYyI7CmNvbnN0IG5hbWUgPSAibXVzaWMtYm90IjsKY29uc3QgZW50cnkgPSAic3JjL21haW4uanMiOwpsZXQgYXBwOwpjb25zdCBzb3VyY2UgPSBwYXRoLmpvaW4oZGlyLCAnZWNvc3lzdGVtLmNvbmZpZy5janMnKTsKaWYgKGVudHJ5KSBhcHAgPSB7IHNjcmlwdDogZW50cnkgfTsKZWxzZSBpZiAoZnMuZXhpc3RzU3luYyhzb3VyY2UpKSB7CiAgY29uc3QgYXBwcyA9IHJlcXVpcmUoc291cmNlKS5hcHBzOwogIGlmICghQXJyYXkuaXNBcnJheShhcHBzKSB8fCAhYXBwcy5sZW5ndGgpIHRocm93IG5ldyBFcnJvcignUmVwb3NpdG9yeSBlY29zeXN0ZW0gaGFzIG5vIGFwcHMuIFNldCBhbiBlbnRyeSBmaWxlIGluIHRoZSBwYW5lbC4nKTsKICBhcHAgPSBhcHBzLmZpbmQoYSA9PiBhLm5hbWUgPT09IG5hbWUpIHx8IChhcHBzLmxlbmd0aCA9PT0gMSA/IGFwcHNbMF0gOiBudWxsKTsKICBpZiAoIWFwcCkgdGhyb3cgbmV3IEVycm9yKCdSZXBvc2l0b3J5IGRlZmluZXMgbXVsdGlwbGUgYXBwcy4gU2V0IGFuIGVudHJ5IGZpbGUgb3IgbWF0Y2ggdGhlIFBNMiBhcHAgbmFtZS4nKTsKfSBlbHNlIGFwcCA9IHsgc2NyaXB0OiAnbnBtJywgYXJnczogJ3N0YXJ0JywgaW50ZXJwcmV0ZXI6ICdub25lJyB9Owptb2R1bGUuZXhwb3J0cyA9IHsgYXBwczogW3sgLi4uYXBwLCBuYW1lLCBjd2Q6IGRpciB9XSB9Owo=' | base64 -d > \"$PANEL_DIR/ecosystem.config.cjs\"\n\npm2 startOrReload \"$PANEL_DIR/ecosystem.config.cjs\" --only \"$APP\" --update-env; pm2 save\npm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "prepare",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\nU='https://example.test/bot.git'\nif [ -n \"$U\" ] && [ ! -d \"$DIR/.git\" ]; then\n  command -v git >/dev/null || { echo \"✖ Git is missing. Run Initial setup first.\"; exit 1; }\n  mkdir -p \"$(dirname \"$DIR\")\"\n  if [ -d \"$DIR\" ] && [ -n \"$(ls -A \"$DIR\")\" ]; then\n    echo \"✖ Folder already contains files. Use Clone / update repo or choose an empty install folder.\"; exit 1\n  fi\n  git clone -b 'main' \"$U\" \"$DIR\"\nelse mkdir -p \"$DIR\"; fi\n\nPANEL_DIR=\"$HOME/.bot-panel/test-id\"\nmkdir -p \"$PANEL_DIR\"\nprintf '%s' 'Ly8gR2VuZXJhdGVkIGJ5IE9yYWNsZSBib3QgcGFuZWwuIFJlcG9zaXRvcnkgZmlsZXMgYXJlIGxlZnQgaW50YWN0Lgpjb25zdCBmcyA9IHJlcXVpcmUoJ2ZzJyk7CmNvbnN0IHBhdGggPSByZXF1aXJlKCdwYXRoJyk7CmNvbnN0IGRpciA9ICIvaG9tZS9vcGMvYm90cy9tdXNpYyI7CmNvbnN0IG5hbWUgPSAibXVzaWMtYm90IjsKY29uc3QgZW50cnkgPSAic3JjL21haW4uanMiOwpsZXQgYXBwOwpjb25zdCBzb3VyY2UgPSBwYXRoLmpvaW4oZGlyLCAnZWNvc3lzdGVtLmNvbmZpZy5janMnKTsKaWYgKGVudHJ5KSBhcHAgPSB7IHNjcmlwdDogZW50cnkgfTsKZWxzZSBpZiAoZnMuZXhpc3RzU3luYyhzb3VyY2UpKSB7CiAgY29uc3QgYXBwcyA9IHJlcXVpcmUoc291cmNlKS5hcHBzOwogIGlmICghQXJyYXkuaXNBcnJheShhcHBzKSB8fCAhYXBwcy5sZW5ndGgpIHRocm93IG5ldyBFcnJvcignUmVwb3NpdG9yeSBlY29zeXN0ZW0gaGFzIG5vIGFwcHMuIFNldCBhbiBlbnRyeSBmaWxlIGluIHRoZSBwYW5lbC4nKTsKICBhcHAgPSBhcHBzLmZpbmQoYSA9PiBhLm5hbWUgPT09IG5hbWUpIHx8IChhcHBzLmxlbmd0aCA9PT0gMSA/IGFwcHNbMF0gOiBudWxsKTsKICBpZiAoIWFwcCkgdGhyb3cgbmV3IEVycm9yKCdSZXBvc2l0b3J5IGRlZmluZXMgbXVsdGlwbGUgYXBwcy4gU2V0IGFuIGVudHJ5IGZpbGUgb3IgbWF0Y2ggdGhlIFBNMiBhcHAgbmFtZS4nKTsKfSBlbHNlIGFwcCA9IHsgc2NyaXB0OiAnbnBtJywgYXJnczogJ3N0YXJ0JywgaW50ZXJwcmV0ZXI6ICdub25lJyB9Owptb2R1bGUuZXhwb3J0cyA9IHsgYXBwczogW3sgLi4uYXBwLCBuYW1lLCBjd2Q6IGRpciB9XSB9Owo=' | base64 -d > \"$PANEL_DIR/ecosystem.config.cjs\"\n\ncd \"$DIR\"\nif [ ! -e .env ]; then\n  (umask 077; if [ -f .env.example ]; then cp .env.example .env; else printf '%s\\n' '# Add the environment variables required by this bot.' > .env; fi)\n  chmod 600 .env\n  echo \"• Created .env; upload this bot's credentials before deploying\"\nfi\nmkdir -p backups\necho \"✔ Bot folder and launch configuration ready: $DIR ($APP)\"\n"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "pull",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"; git pull --ff-only origin 'main'; git log -3 --oneline"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "clone",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\ncommand -v git >/dev/null || { echo \"git is missing - run Initial setup first\"; exit 1; }\nU='https://example.test/bot.git'; B='main'\nif [ -d \"$DIR/.git\" ]; then\n  echo \"• Repo exists, updating\"\n  git -C \"$DIR\" remote set-url origin \"$U\"; git -C \"$DIR\" fetch origin \"$B\"; git -C \"$DIR\" checkout \"$B\" 2>/dev/null || true; git -C \"$DIR\" pull --ff-only origin \"$B\"\nelse\n  mkdir -p \"$DIR\"\n  if [ -z \"$(ls -A \"$DIR\")\" ]; then echo \"• Cloning\"; git clone -b \"$B\" \"$U\" \"$DIR\"\n  else echo \"• Folder has files, adding the repo in place (checkout stops if files would be overwritten)\"; cd \"$DIR\"; git init -q; git remote add origin \"$U\"; git fetch origin \"$B\"; git checkout -B \"$B\" \"origin/$B\"; fi\nfi\ncd \"$DIR\"; git log -3 --format='%h %ar %s'; \nPANEL_DIR=\"$HOME/.bot-panel/test-id\"\nmkdir -p \"$PANEL_DIR\"\nprintf '%s' 'Ly8gR2VuZXJhdGVkIGJ5IE9yYWNsZSBib3QgcGFuZWwuIFJlcG9zaXRvcnkgZmlsZXMgYXJlIGxlZnQgaW50YWN0Lgpjb25zdCBmcyA9IHJlcXVpcmUoJ2ZzJyk7CmNvbnN0IHBhdGggPSByZXF1aXJlKCdwYXRoJyk7CmNvbnN0IGRpciA9ICIvaG9tZS9vcGMvYm90cy9tdXNpYyI7CmNvbnN0IG5hbWUgPSAibXVzaWMtYm90IjsKY29uc3QgZW50cnkgPSAic3JjL21haW4uanMiOwpsZXQgYXBwOwpjb25zdCBzb3VyY2UgPSBwYXRoLmpvaW4oZGlyLCAnZWNvc3lzdGVtLmNvbmZpZy5janMnKTsKaWYgKGVudHJ5KSBhcHAgPSB7IHNjcmlwdDogZW50cnkgfTsKZWxzZSBpZiAoZnMuZXhpc3RzU3luYyhzb3VyY2UpKSB7CiAgY29uc3QgYXBwcyA9IHJlcXVpcmUoc291cmNlKS5hcHBzOwogIGlmICghQXJyYXkuaXNBcnJheShhcHBzKSB8fCAhYXBwcy5sZW5ndGgpIHRocm93IG5ldyBFcnJvcignUmVwb3NpdG9yeSBlY29zeXN0ZW0gaGFzIG5vIGFwcHMuIFNldCBhbiBlbnRyeSBmaWxlIGluIHRoZSBwYW5lbC4nKTsKICBhcHAgPSBhcHBzLmZpbmQoYSA9PiBhLm5hbWUgPT09IG5hbWUpIHx8IChhcHBzLmxlbmd0aCA9PT0gMSA/IGFwcHNbMF0gOiBudWxsKTsKICBpZiAoIWFwcCkgdGhyb3cgbmV3IEVycm9yKCdSZXBvc2l0b3J5IGRlZmluZXMgbXVsdGlwbGUgYXBwcy4gU2V0IGFuIGVudHJ5IGZpbGUgb3IgbWF0Y2ggdGhlIFBNMiBhcHAgbmFtZS4nKTsKfSBlbHNlIGFwcCA9IHsgc2NyaXB0OiAnbnBtJywgYXJnczogJ3N0YXJ0JywgaW50ZXJwcmV0ZXI6ICdub25lJyB9Owptb2R1bGUuZXhwb3J0cyA9IHsgYXBwczogW3sgLi4uYXBwLCBuYW1lLCBjd2Q6IGRpciB9XSB9Owo=' | base64 -d > \"$PANEL_DIR/ecosystem.config.cjs\"\n\ncd \"$DIR\"\nif [ ! -e .env ]; then\n  (umask 077; if [ -f .env.example ]; then cp .env.example .env; else printf '%s\\n' '# Add the environment variables required by this bot.' > .env; fi)\n  chmod 600 .env\n  echo \"• Created .env; upload this bot's credentials before deploying\"\nfi\nmkdir -p backups\necho \"✔ Bot folder and launch configuration ready: $DIR ($APP)\"\n\necho \"✔ Next: Upload .env, then Pull & deploy\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "resetrepo",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"; B='main'; git fetch origin \"$B\"; git reset --hard \"origin/$B\"; git clean -fd -e .env -e '*.db*' -e backups/; git log -3 --format='%h %ar %s'"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "gitstatus",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\ncd \"$DIR\" && git remote -v && git status -sb && git log -5 --format='%h %ar %s'"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "cmds",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"; npm run sync"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "start",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"; \nPANEL_DIR=\"$HOME/.bot-panel/test-id\"\nmkdir -p \"$PANEL_DIR\"\nprintf '%s' 'Ly8gR2VuZXJhdGVkIGJ5IE9yYWNsZSBib3QgcGFuZWwuIFJlcG9zaXRvcnkgZmlsZXMgYXJlIGxlZnQgaW50YWN0Lgpjb25zdCBmcyA9IHJlcXVpcmUoJ2ZzJyk7CmNvbnN0IHBhdGggPSByZXF1aXJlKCdwYXRoJyk7CmNvbnN0IGRpciA9ICIvaG9tZS9vcGMvYm90cy9tdXNpYyI7CmNvbnN0IG5hbWUgPSAibXVzaWMtYm90IjsKY29uc3QgZW50cnkgPSAic3JjL21haW4uanMiOwpsZXQgYXBwOwpjb25zdCBzb3VyY2UgPSBwYXRoLmpvaW4oZGlyLCAnZWNvc3lzdGVtLmNvbmZpZy5janMnKTsKaWYgKGVudHJ5KSBhcHAgPSB7IHNjcmlwdDogZW50cnkgfTsKZWxzZSBpZiAoZnMuZXhpc3RzU3luYyhzb3VyY2UpKSB7CiAgY29uc3QgYXBwcyA9IHJlcXVpcmUoc291cmNlKS5hcHBzOwogIGlmICghQXJyYXkuaXNBcnJheShhcHBzKSB8fCAhYXBwcy5sZW5ndGgpIHRocm93IG5ldyBFcnJvcignUmVwb3NpdG9yeSBlY29zeXN0ZW0gaGFzIG5vIGFwcHMuIFNldCBhbiBlbnRyeSBmaWxlIGluIHRoZSBwYW5lbC4nKTsKICBhcHAgPSBhcHBzLmZpbmQoYSA9PiBhLm5hbWUgPT09IG5hbWUpIHx8IChhcHBzLmxlbmd0aCA9PT0gMSA/IGFwcHNbMF0gOiBudWxsKTsKICBpZiAoIWFwcCkgdGhyb3cgbmV3IEVycm9yKCdSZXBvc2l0b3J5IGRlZmluZXMgbXVsdGlwbGUgYXBwcy4gU2V0IGFuIGVudHJ5IGZpbGUgb3IgbWF0Y2ggdGhlIFBNMiBhcHAgbmFtZS4nKTsKfSBlbHNlIGFwcCA9IHsgc2NyaXB0OiAnbnBtJywgYXJnczogJ3N0YXJ0JywgaW50ZXJwcmV0ZXI6ICdub25lJyB9Owptb2R1bGUuZXhwb3J0cyA9IHsgYXBwczogW3sgLi4uYXBwLCBuYW1lLCBjd2Q6IGRpciB9XSB9Owo=' | base64 -d > \"$PANEL_DIR/ecosystem.config.cjs\"\n\npm2 startOrReload \"$PANEL_DIR/ecosystem.config.cjs\" --only \"$APP\" --update-env; pm2 save; pm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "solo",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"\nif pm2 describe 'other-bot' >/dev/null 2>&1; then pm2 stop 'other-bot'; fi\npm2 save\n\nPANEL_DIR=\"$HOME/.bot-panel/test-id\"\nmkdir -p \"$PANEL_DIR\"\nprintf '%s' 'Ly8gR2VuZXJhdGVkIGJ5IE9yYWNsZSBib3QgcGFuZWwuIFJlcG9zaXRvcnkgZmlsZXMgYXJlIGxlZnQgaW50YWN0Lgpjb25zdCBmcyA9IHJlcXVpcmUoJ2ZzJyk7CmNvbnN0IHBhdGggPSByZXF1aXJlKCdwYXRoJyk7CmNvbnN0IGRpciA9ICIvaG9tZS9vcGMvYm90cy9tdXNpYyI7CmNvbnN0IG5hbWUgPSAibXVzaWMtYm90IjsKY29uc3QgZW50cnkgPSAic3JjL21haW4uanMiOwpsZXQgYXBwOwpjb25zdCBzb3VyY2UgPSBwYXRoLmpvaW4oZGlyLCAnZWNvc3lzdGVtLmNvbmZpZy5janMnKTsKaWYgKGVudHJ5KSBhcHAgPSB7IHNjcmlwdDogZW50cnkgfTsKZWxzZSBpZiAoZnMuZXhpc3RzU3luYyhzb3VyY2UpKSB7CiAgY29uc3QgYXBwcyA9IHJlcXVpcmUoc291cmNlKS5hcHBzOwogIGlmICghQXJyYXkuaXNBcnJheShhcHBzKSB8fCAhYXBwcy5sZW5ndGgpIHRocm93IG5ldyBFcnJvcignUmVwb3NpdG9yeSBlY29zeXN0ZW0gaGFzIG5vIGFwcHMuIFNldCBhbiBlbnRyeSBmaWxlIGluIHRoZSBwYW5lbC4nKTsKICBhcHAgPSBhcHBzLmZpbmQoYSA9PiBhLm5hbWUgPT09IG5hbWUpIHx8IChhcHBzLmxlbmd0aCA9PT0gMSA/IGFwcHNbMF0gOiBudWxsKTsKICBpZiAoIWFwcCkgdGhyb3cgbmV3IEVycm9yKCdSZXBvc2l0b3J5IGRlZmluZXMgbXVsdGlwbGUgYXBwcy4gU2V0IGFuIGVudHJ5IGZpbGUgb3IgbWF0Y2ggdGhlIFBNMiBhcHAgbmFtZS4nKTsKfSBlbHNlIGFwcCA9IHsgc2NyaXB0OiAnbnBtJywgYXJnczogJ3N0YXJ0JywgaW50ZXJwcmV0ZXI6ICdub25lJyB9Owptb2R1bGUuZXhwb3J0cyA9IHsgYXBwczogW3sgLi4uYXBwLCBuYW1lLCBjd2Q6IGRpciB9XSB9Owo=' | base64 -d > \"$PANEL_DIR/ecosystem.config.cjs\"\n\npm2 startOrReload \"$PANEL_DIR/ecosystem.config.cjs\" --only \"$APP\" --update-env; pm2 save; pm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "stop",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 stop \"$APP\"; pm2 save; pm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "restart",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 restart \"$APP\" --update-env; pm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "status",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 status; echo; pm2 describe \"$APP\" 2>&1 | head -30"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "logs",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 logs \"$APP\" --nostream --raw --lines 100 --err 2>&1 | grep -i --line-buffered -e 'fatal'; true"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "follow",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\ntimeout 900 pm2 logs \"$APP\" --raw --lines 100 --err 2>&1 | grep -i --line-buffered -e 'fatal'; true"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "flush",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 flush \"$APP\"; echo \"Logs flushed\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "sysinfo",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nuptime; echo; free -h; echo; df -h /; echo; du -sh \"$DIR\" 2>/dev/null; echo; ps aux --sort=-%mem | head -6"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "backup",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\ncd \"$DIR\"; mkdir -p backups; for f in *.db; do [ -f \"$f\" ] && cp \"$f\" \"backups/${f%.db}-$(date +%Y%m%d-%H%M%S).db\" && echo \"saved $f\"; done; ls -lh backups | tail -8"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "envshow",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nsed -E 's/=.*/=***/' \"$DIR/.env\" 2>&1"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "reboot",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nsudo reboot"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": true,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "custom",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\necho hello"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "test",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\necho \"Connected as $(whoami)@$(hostname)\"; . /etc/os-release; echo \"$PRETTY_NAME, kernel $(uname -r)\"\nfor tool in node npm pm2 git; do\n  if command -v \"$tool\" >/dev/null 2>&1; then echo \"$tool: installed\";\n  else echo \"⚠ $tool: not installed yet — run Initial setup\"; fi\ndone\necho \"✔ SSH connection works\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "setup",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n\necho \"• System packages + Node.js 22 LTS\"\nif [ \"$PM\" = dnf ]; then\n  echo \"• Installing system packages (one download at a time; optional dependencies disabled)\"\n  sudo dnf -y --setopt=max_parallel_downloads=1 --setopt=install_weak_deps=False install git tar curl gcc-c++ make\n  curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -\n  sudo dnf -y --setopt=max_parallel_downloads=1 --setopt=install_weak_deps=False install nodejs\nelse\n  sudo apt-get update -y\n  sudo apt-get install -y git curl build-essential ca-certificates\n  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -\n  sudo apt-get install -y nodejs\nfi\necho \"• PM2 + boot autostart\"; sudo env \"NODE_OPTIONS=${NODE_OPTIONS:-}\" npm_config_jobs=1 MAKEFLAGS=-j1 npm i -g pm2@latest --no-audit --no-fund\nsudo env PATH=\"$PATH:/usr/bin\" pm2 startup systemd -u \"$USER\" --hp \"$HOME\" >/dev/null || true\nU='https://example.test/bot.git'\nif [ -n \"$U\" ]; then\n  if [ -d \"$DIR/.git\" ]; then git -C \"$DIR\" remote set-url origin \"$U\"; git -C \"$DIR\" pull --ff-only origin 'main'; else mkdir -p \"$(dirname \"$DIR\")\"; git clone -b 'main' \"$U\" \"$DIR\"; fi\nelse mkdir -p \"$DIR\"; fi\n\ncd \"$DIR\"\nif [ ! -e .env ]; then\n  (umask 077; if [ -f .env.example ]; then cp .env.example .env; else printf '%s\\n' '# Add the environment variables required by this bot.' > .env; fi)\n  chmod 600 .env\n  echo \"• Created .env; upload this bot's credentials before deploying\"\nfi\nmkdir -p backups\necho \"✔ Bot folder and launch configuration ready: $DIR ($APP)\"\n\necho \"node $(node -v) | pm2 $(pm2 -v)\"; echo \"✔ Next: Upload .env, then Pull & deploy\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "sysupdate",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nif [ \"$PM\" = dnf ]; then sudo dnf -y upgrade --refresh; else sudo apt-get update && sudo apt-get -y upgrade; fi\n[ -f /var/run/reboot-required ] && echo \"⚠ Reboot required\"; true"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "memory",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "npmupdate",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n\nsudo env \"NODE_OPTIONS=${NODE_OPTIONS:-}\" npm_config_jobs=1 MAKEFLAGS=-j1 npm i -g npm@latest pm2@latest --no-audit --no-fund && pm2 update; echo \"npm $(npm -v) | pm2 $(pm2 -v)\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "deploy",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\ncd \"$DIR\"\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n\ngit pull --ff-only origin 'main'\necho \"• Installing dependencies\"\nif [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then\n  npm ci --include=dev --no-audit --no-fund\nelse\n  npm install --include=dev --no-audit --no-fund\nfi\necho \"• Building\"; npm run build\necho \"• Command sync\"; npm run sync\necho \"• Restarting bot\"; \npm2 startOrReload ecosystem.config.cjs --only \"$APP\" --update-env; pm2 save\npm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "redeploy",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\ncd \"$DIR\"\nset -e\nRAM_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)\nSWAP_KB=$(awk '/SwapTotal:/{print $2}' /proc/meminfo)\nif [ \"$RAM_KB\" -lt 2097152 ] && [ \"$SWAP_KB\" -lt 1048576 ]; then\n  echo \"• Preparing 2 GiB swap for this low-memory VM\"\n  SWAPFILE=/var/swap.bot-panel\n  if ! sudo swapon --show=NAME --noheadings | grep -Fxq \"$SWAPFILE\"; then\n    if sudo test -e \"$SWAPFILE\"; then\n      echo \"✖ $SWAPFILE already exists but is inactive. Inspect it before retrying; it will not be overwritten.\"; exit 1\n    fi\n    FREE_KB=$(df -Pk /var | awk 'NR==2{print $4}')\n    [ \"$FREE_KB\" -ge 3145728 ] || { echo \"✖ At least 3 GiB free disk space is needed to create swap.\"; exit 1; }\n    sudo install -m 600 /dev/null \"$SWAPFILE\"\n    sudo dd if=/dev/zero of=\"$SWAPFILE\" bs=1M count=2048 status=progress\n    sudo mkswap \"$SWAPFILE\"\n    sudo swapon \"$SWAPFILE\"\n  fi\n  if ! grep -Eq '^/var/swap[.]bot-panel[[:space:]]' /etc/fstab; then\n    echo '/var/swap.bot-panel none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null\n  fi\nfi\nif [ \"$RAM_KB\" -lt 2097152 ]; then\n  export NODE_OPTIONS=\"${NODE_OPTIONS:---max-old-space-size=512}\"\n  export npm_config_jobs=1 MAKEFLAGS=-j1\nfi\nfree -h\nif [ \"$RAM_KB\" -lt 786432 ]; then\n  echo \"⚠ Less than 768 MiB RAM is visible to Linux. Swap helps, but package installation may still stall under memory pressure.\"\nfi\n\ntrue\necho \"• Installing dependencies\"\nif [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then\n  npm ci --include=dev --no-audit --no-fund\nelse\n  npm install --include=dev --no-audit --no-fund\nfi\necho \"• Building\"; npm run build\necho \"• Command sync\"; npm run sync\necho \"• Restarting bot\"; \npm2 startOrReload ecosystem.config.cjs --only \"$APP\" --update-env; pm2 save\npm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "prepare",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\nU='https://example.test/bot.git'\nif [ -n \"$U\" ] && [ ! -d \"$DIR/.git\" ]; then\n  command -v git >/dev/null || { echo \"✖ Git is missing. Run Initial setup first.\"; exit 1; }\n  mkdir -p \"$(dirname \"$DIR\")\"\n  if [ -d \"$DIR\" ] && [ -n \"$(ls -A \"$DIR\")\" ]; then\n    echo \"✖ Folder already contains files. Use Clone / update repo or choose an empty install folder.\"; exit 1\n  fi\n  git clone -b 'main' \"$U\" \"$DIR\"\nelse mkdir -p \"$DIR\"; fi\n\ncd \"$DIR\"\nif [ ! -e .env ]; then\n  (umask 077; if [ -f .env.example ]; then cp .env.example .env; else printf '%s\\n' '# Add the environment variables required by this bot.' > .env; fi)\n  chmod 600 .env\n  echo \"• Created .env; upload this bot's credentials before deploying\"\nfi\nmkdir -p backups\necho \"✔ Bot folder and launch configuration ready: $DIR ($APP)\"\n"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "pull",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"; git pull --ff-only origin 'main'; git log -3 --oneline"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "clone",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e\ncommand -v git >/dev/null || { echo \"git is missing - run Initial setup first\"; exit 1; }\nU='https://example.test/bot.git'; B='main'\nif [ -d \"$DIR/.git\" ]; then\n  echo \"• Repo exists, updating\"\n  git -C \"$DIR\" remote set-url origin \"$U\"; git -C \"$DIR\" fetch origin \"$B\"; git -C \"$DIR\" checkout \"$B\" 2>/dev/null || true; git -C \"$DIR\" pull --ff-only origin \"$B\"\nelse\n  mkdir -p \"$DIR\"\n  if [ -z \"$(ls -A \"$DIR\")\" ]; then echo \"• Cloning\"; git clone -b \"$B\" \"$U\" \"$DIR\"\n  else echo \"• Folder has files, adding the repo in place (checkout stops if files would be overwritten)\"; cd \"$DIR\"; git init -q; git remote add origin \"$U\"; git fetch origin \"$B\"; git checkout -B \"$B\" \"origin/$B\"; fi\nfi\ncd \"$DIR\"; git log -3 --format='%h %ar %s'; \ncd \"$DIR\"\nif [ ! -e .env ]; then\n  (umask 077; if [ -f .env.example ]; then cp .env.example .env; else printf '%s\\n' '# Add the environment variables required by this bot.' > .env; fi)\n  chmod 600 .env\n  echo \"• Created .env; upload this bot's credentials before deploying\"\nfi\nmkdir -p backups\necho \"✔ Bot folder and launch configuration ready: $DIR ($APP)\"\n\necho \"✔ Next: Upload .env, then Pull & deploy\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "resetrepo",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"; B='main'; git fetch origin \"$B\"; git reset --hard \"origin/$B\"; git clean -fd -e .env -e '*.db*' -e backups/; git log -3 --format='%h %ar %s'"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "gitstatus",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\ncd \"$DIR\" && git remote -v && git status -sb && git log -5 --format='%h %ar %s'"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "cmds",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"; npm run sync"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "start",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"; \npm2 startOrReload ecosystem.config.cjs --only \"$APP\" --update-env; pm2 save; pm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "solo",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nset -e; cd \"$DIR\"\nif pm2 describe 'other-bot' >/dev/null 2>&1; then pm2 stop 'other-bot'; fi\npm2 save\n\npm2 startOrReload ecosystem.config.cjs --only \"$APP\" --update-env; pm2 save; pm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "stop",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 stop \"$APP\"; pm2 save; pm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "restart",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 restart \"$APP\" --update-env; pm2 status"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "status",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 status; echo; pm2 describe \"$APP\" 2>&1 | head -30"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "logs",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 logs \"$APP\" --nostream --raw --lines 100 --err 2>&1 | grep -i --line-buffered -e 'fatal'; true"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "follow",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\ntimeout 900 pm2 logs \"$APP\" --raw --lines 100 --err 2>&1 | grep -i --line-buffered -e 'fatal'; true"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "flush",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\npm2 flush \"$APP\"; echo \"Logs flushed\""
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "sysinfo",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nuptime; echo; free -h; echo; df -h /; echo; du -sh \"$DIR\" 2>/dev/null; echo; ps aux --sort=-%mem | head -6"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "backup",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\ncd \"$DIR\"; mkdir -p backups; for f in *.db; do [ -f \"$f\" ] && cp \"$f\" \"backups/${f%.db}-$(date +%Y%m%d-%H%M%S).db\" && echo \"saved $f\"; done; ls -lh backups | tail -8"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "envshow",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nsed -E 's/=.*/=***/' \"$DIR/.env\" 2>&1"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "reboot",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\nsudo reboot"
+  },
+  {
+    "config": {
+      "id": "test-id",
+      "managed": false,
+      "name": "Test",
+      "app": "music-bot",
+      "dir": "/home/opc/bots/music",
+      "repo": "https://example.test/bot.git",
+      "token": "",
+      "branch": "main",
+      "entryFile": "src/main.js",
+      "buildCmd": "npm run build",
+      "cmdSyncCmd": "npm run sync",
+      "otherApps": [
+        "other-bot"
+      ]
+    },
+    "action": "custom",
+    "params": {
+      "lines": 100,
+      "err": true,
+      "filter": "fatal",
+      "cmd": "echo hello"
+    },
+    "want": "export GIT_TERMINAL_PROMPT=0 DEBIAN_FRONTEND=noninteractive\nPM=apt-get; command -v dnf >/dev/null 2>&1 && PM=dnf\nAPP='music-bot'; DIR='/home/opc/bots/music'\ncd \"$DIR\" 2>/dev/null || true\necho hello"
+  }
+]

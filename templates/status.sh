@@ -1,0 +1,1 @@
+pm2 status; echo; pm2 describe "$APP" 2>&1 | head -30

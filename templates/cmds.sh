@@ -1,0 +1,1 @@
+set -e; cd "$DIR"; {{sync_cmd}}

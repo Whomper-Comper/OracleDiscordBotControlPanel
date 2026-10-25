@@ -1,6 +1,6 @@
 # Configuration and Bot Profiles
 
-The panel persists state locally in `config.json`. `profiles.cjs` owns migration, selection, validation, and writes. The browser **auto-saves settings on `change` events**, not each keystroke; leaving a field usually triggers the save.
+The panel persists state in `config.json` beside the executable, or the path supplied through `--config`. `src/profiles.rs` owns migration, selection, validation, and writes. The browser **auto-saves settings on `change` events**, not each keystroke; leaving a field usually triggers the save.
 
 The save indicator at the top of the sidebar shows saving, saved, and failed states. Expand **Build commands & local files** to edit build/sync commands, the managed entry file, `localEnv`, and `localBot`. If initial settings loading fails, **Retry loading settings** attempts to load them again after the local panel is available.
 
@@ -71,11 +71,11 @@ The `activeBotId` points to an existing `bots[].id` and identifies which profile
 | `localBot` | Path to local Windows source directory | Used by **Upload code & deploy**. |
 | `entryFile` | Script to launch for a **managed** bot | Optional; takes precedence over repo ecosystem config and fallback `npm start`. |
 
-Unknown `botId` values are rejected. Attempts to set arbitrary fields (such as `managed` and `id`) through `POST /api/config` are filtered by the whitelists in `profiles.cjs`.
+Unknown `botId` values are rejected. Attempts to set arbitrary fields (such as `managed` and `id`) through `POST /api/config` are filtered by the whitelists in `src/profiles.rs`.
 
 ## Creating a new profile
 
-`profiles.add()`:
+`Store::add()`:
 
 1. Takes a nonempty display name and converts it into a lowercase filesystem/PM2-safe slug (for example, `Music Bot` → `music-bot`).
 2. Resolves name/folder collisions by appending `-2`, `-3`, etc.
@@ -90,7 +90,7 @@ Editing one bot's repo, build command, local upload paths, PM2 name, and install
 
 Select a saved bot and choose **Duplicate setup**. The browser saves current edits before opening the dialog. Choose a name and optionally change the repository URL or entry file, then submit.
 
-`profiles.duplicate(store, { id, name, repo?, entryFile? })` requires an explicit existing source ID and a nonempty string name. Optional overrides must be strings; empty strings clear those two fields. It reads the saved source and copies only `repo`, `branch`, `buildCmd`, `cmdSyncCmd`, and `entryFile` into a new profile. UUID, PM2 app name, install folder, and `managed: true` are generated through the normal new-profile path, including collision suffixes. `localEnv` and `localBot` are empty. Shared connection settings stay shared, and no SSH credentials become per-bot fields. The source profile is preserved.
+`Store::duplicate()` requires an explicit existing source ID and a nonempty string name. Optional overrides must be strings; empty strings clear those two fields. It reads the saved source and copies only `repo`, `branch`, `buildCmd`, `cmdSyncCmd`, and `entryFile` into a new profile. UUID, PM2 app name, install folder, and `managed: true` are generated through the normal new-profile path, including collision suffixes. `localEnv` and `localBot` are empty. Shared connection settings stay shared, and no SSH credentials become per-bot fields. The source profile is preserved.
 
 The API saves the new profile and selects it. Duplication does not connect to the VM, prepare a folder, copy bot files, copy `.env` credentials, or start a bot. Use **Prepare bot files**, upload this bot's own credentials, and deploy separately. This differs from **Add bot → Create & prepare**, which attempts preparation when a host is configured.
 
@@ -100,13 +100,13 @@ The API saves the new profile and selects it. Duplication does not connect to th
 
 ## Migrating an old configuration
 
-`profiles.normalize()` supports legacy (flat) settings:
+`Store::normalize()` supports legacy (flat) settings:
 
 - If the file already has `version: 2` and a `bots` array (including an empty one), it is treated as v2.
 - Otherwise the old keys are combined with defaults and moved into `server` and the first `bots` entry.
 - The original bot becomes `id: "legacy"`, `managed: false`, `entryFile: ""`; its install folder and PM2 name are preserved.
 - The first configuration **write** copies the prior `config.json` to `config.json.pre-profiles.bak` if the source exists and that backup path does not. This also occurs on the first write of an existing v2 config if no backup exists; it is not a recurring versioned backup system.
-- Writes go through `config.json.tmp` before renaming to `config.json`; the temporary file is created with mode `0600` where the OS supports it.
+- Writes go through a unique temporary file in the same folder before renaming to `config.json`; the temporary file is created with mode `0600` where the OS supports it.
 
 **Do not delete the backup until you have securely verified migration.** The backup can contain the same GitHub token and paths as the live file.
 
@@ -124,7 +124,7 @@ Use the PM2 **app** name defined by the bot's repository config. If the reposito
 
 ### Managed (`managed: true`)
 
-`server.cjs` generates a profile-specific launch file at:
+`src/scripts.rs` generates a profile-specific launch file at:
 
 ```text
 $HOME/.bot-panel/<profile-id>/ecosystem.config.cjs

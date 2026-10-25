@@ -1,0 +1,1 @@
+set -e; cd "$DIR"; B={{branch}}; git fetch origin "$B"; git reset --hard "origin/$B"; git clean -fd -e .env -e '*.db*' -e backups/; git log -3 --format='%h %ar %s'

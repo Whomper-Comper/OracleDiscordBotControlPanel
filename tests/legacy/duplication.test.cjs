@@ -124,7 +124,7 @@ test('only the two explicit browser scripts are served as JavaScript without exp
     const response = await fetch(base + '/' + file);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('content-type'), 'text/javascript;charset=utf-8');
-    assert.equal(await response.text(), fs.readFileSync(path.join(__dirname, file), 'utf8'));
+    assert.equal(await response.text(), fs.readFileSync(path.join(__dirname, '../..', file), 'utf8'));
   }
   const other = await fetch(base + '/profiles.cjs');
   assert.equal(other.headers.get('content-type'), 'text/html;charset=utf-8');

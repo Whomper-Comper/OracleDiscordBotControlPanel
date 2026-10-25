@@ -1,0 +1,1 @@
+cd "$DIR" && git remote -v && git status -sb && git log -5 --format='%h %ar %s'

@@ -1,0 +1,1 @@
+timeout 900 pm2 logs "$APP" --raw --lines {{lines}}{{log_err}} 2>&1{{log_filter}}; true

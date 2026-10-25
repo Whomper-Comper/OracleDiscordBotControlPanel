@@ -1,0 +1,1 @@
+pm2 restart "$APP" --update-env; pm2 status

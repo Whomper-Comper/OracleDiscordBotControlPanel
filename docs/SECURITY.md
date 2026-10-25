@@ -1,107 +1,55 @@
-# Security, Trust Boundaries, and Known Limitations
+# Security, trust boundaries and limitations
 
-**Scope:** These notes describe the panel source as implemented. This is a **local administrator tool**, not a hardened public-facing web service.
+This is a **trusted local administrator tool**. Anyone operating the panel can deploy arbitrary code and execute commands on the configured SSH account, including sudo where available. Rust does not change that authority.
 
-## Threat model / trusted components
+## Local access
 
-The project intentionally lets a local operator execute shell commands on a VM via the SSH account configured in the sidebar. Accordingly, treat the **Windows computer, browser session, panel folder, and local API** as highly trusted. Anyone who can operate this panel may deploy arbitrary code and change server settings with the privileges of the SSH account (plus sudo where available).
+The listener binds only to 127.0.0.1, checks localhost/127.0.0.1 Host with its port, requires X-Panel: 1 for POST and rejects mismatched supplied Origin headers. These restrictions are not user authentication or protection against untrusted local software. GET /api/config returns credentials to the browser. Do not expose the listener through tunnels, proxies or changed network boundaries without designing authentication and authorization.
 
-The HTTP listener binds to `127.0.0.1:4321` and checks that the request's `Host` header is a localhost address with its current port. POST actions require `X-Panel: 1`. **These checks are not authentication, authorization, or CSRF-hardening sufficient for a public admin interface.** Do not expose the server with tunnels, port forwards, reverse proxies, or changed bind addresses unless you design appropriate authentication and security first.
+POST operations are serialized within this server process; mutations cancel background status checks. Removal also requires an unchanged config revision, typed app confirmation and an extra file-deletion acknowledgement. These checks do not coordinate other panel instances or external SSH sessions.
 
-## Sensitive information map
+## Sensitive data
 
-| Information | Where it appears | Recommended practice |
-| --- | --- | --- |
-| GitHub personal access token | `config.json` as `server.token`; browser's `/api/config` response; possibly Git `origin` on the VM when HTTPS credentials are injected | Prefer scoped, least-privileged token; rotate if exposed; don't paste it into issues or logs. |
-| SSH private-key **file path** | `config.json` as `server.key`; browser config | File path is not key contents, but keep configuration private; protect the actual `.key`/`.pem` file. |
-| SSH private-key **contents** | Local key file | Not uploaded by the panel (unless you explicitly upload the file); never commit or share. |
-| Bot credentials | Each bot's `DIR/.env`; your Windows local `.env` | Upload per bot; never commit `.env`; review who can read the VM filesystem. |
-| Prior settings | `config.json.pre-profiles.bak` | Treat just like `config.json`; it can preserve old exposed secrets after rotation. |
-| Console output / PM2 logs | Local browser console and potentially saved `.txt` files; remote PM2 logs | Outputs can reveal tokens, environment details, paths, or user data. Share sanitized excerpts. |
-| Remote repo metadata | `DIR/.git/config` when token is injected into HTTPS remote URL | Credential-bearing Git remote URLs are sensitive; verify/replace token after compromise. |
+| Data | Locations |
+| --- | --- |
+| GitHub token | config.json, first-write backup, browser config; possibly remote Git origin URL |
+| SSH identity | Local private key file; its filename is stored in config/browser |
+| Bot credentials | Local .env, remote bot folder/.env |
+| Logs/output | Browser retained output, exports, remote PM2 logs |
+| Configuration backup | config.json.pre-profiles.bak; can retain old credentials |
 
-The server masks the configured token and its URL-encoded form in **each stdout/stderr chunk** before returning output. This reduces accidental exposure, but is **not reliable universal redaction** (a secret split across chunks or transformed differently could slip through). Never rely on the output filter alone to make logs safe to publish.
+Keep these files private. Git excludes working config, backup/temp variants, keys, real .env, databases, archives and logs. Safe example files contain placeholders. Ignore rules do not remove already committed credentials from history; rotate exposed secrets.
 
-Output search and **Errors only** hide lines in the browser; they do not redact or delete them. **Copy all** and **Save all** include all retained lines, including hidden ones (up to the 5,000-line retention limit). Review exported text before sharing it. **Duplicate setup** copies deployment preferences only: it does not copy `.env` files, bot data, or local upload paths, and it leaves the existing shared connection credentials in place.
+Config writes use a private temporary file, sync and atomic replacement. On Windows, protect the containing folder and key/config ACLs; Unix creation modes do not substitute for Windows ACLs.
 
-### Repository exclusions and examples
+Each stdout/stderr stream masks the configured token and its URL-encoded form across read boundaries while preserving UTF-8. Other credentials, encodings, transformed text, echoed custom commands or remote logs can still expose secrets. Output filters only hide lines. Copy all/Save all include every retained line, up to 5,000; review exports before sharing.
 
-The root `.gitignore` excludes runtime configuration and backups, SSH identities, actual environment files, databases, archives, and logs. `config.example.json` and `.env.example` are safe starter files with empty credentials. Keep them free of real values. Core exclusions include:
+## SSH and shell execution
 
-```gitignore
-# Local panel configuration and credential-bearing backups
-/config.json
-/config.json.tmp
-/config.json.pre-profiles.bak
-/config.json.*
+OpenSSH uses optional -i, agent/default identities, BatchMode=yes, accept-new host keys and keepalives. A passphrase-protected key needs an agent because interactive prompts are disabled. Verify new host fingerprints independently: accept-new does not establish first-contact identity.
 
-# SSH private keys or secrets accidentally kept in project tree
-*.key
-*.pem
-.env
-.env.*
-!.env.example
+Scripts are Base64-encoded before Bash execution. Encoding is not sanitization or encryption. Data values are shell-quoted and templates are expanded once. buildCmd, cmdSyncCmd and Run command are intentional arbitrary shell execution by the trusted operator.
 
-# Temporary logs/archives from local investigations
-*.log
-bot-upload.tgz
-```
+A GitHub token supplied for HTTPS repositories **can still be written into the remote checkout's Git origin URL**. Treat .git/config there as sensitive. Prefer public anonymous URLs where possible and scoped tokens when necessary. The port preserves this behavior; it does not introduce a credential manager.
 
-If `config.json` is **already tracked by Git**, adding `.gitignore` does not remove it from history. Remove it from Git tracking and rotate any credentials disclosed by prior commits; do not delete the local working configuration accidentally.
+## Uploads and cancellation
 
-## How SSH access is secured (and what it doesn't do)
+Browser uploads stream to scoped temporary disk files and have a 64 MiB per-file cap; JSON bodies have a 1 MiB cap. Destinations must be absolute Linux paths without parent traversal and match the allowed character set. The operator can intentionally upload anywhere the SSH account can write; there is no per-bot upload sandbox.
 
-- With `key` set, the panel passes `ssh -i <absolute Windows private-key path>` (and the analogous SCP option). Without it, OpenSSH searches its usual identities and agent.
-- `BatchMode=yes` prevents password/passphrase prompts. A key that needs an interactive passphrase without an agent can fail, even if manual interactive SSH works.
-- `StrictHostKeyChecking=accept-new` records previously unseen hosts automatically. It does **not** independently verify the identity of a new host; verify your Oracle instance's server fingerprint by a trusted method on a new machine/network.
-- The remote script is Base64-wrapped then run through `bash -lc`. Base64 **does not** sanitize shell code, grant security, or hide secrets from users/processes with access.
+Code archives use unique local and remote filenames. Local temporary data is cleaned on normal/error scope exit. After extraction begins, a remote EXIT trap removes its archive; an interrupted SCP can leave a partial /tmp/bot-panel-UUID.tgz. Process crashes or forced termination can bypass normal cleanup.
 
-For testing SSH without leaking credentials, use a command of the form:
+Closing a streamed response cancels the job and kills/waits for the local child. Windows Job Objects also own local descendants; Ctrl+C cancels jobs and bounds HTTP draining. **Cancellation is not undo** and is not a guarantee all remote descendants terminate. Long actions have no overall deadline; status has 45 seconds. The Windows key-permission repair runs its second icacls step only after the first succeeds and reports failures, but changing ACLs still requires operator care.
 
-```bat
-ssh -o BatchMode=yes -i "C:\Users\Example\.ssh\oracle.key" -T opc@YOUR_VM "echo SSH_OK"
-```
+## Destructive actions and recovery
 
-Use your own actual key **filename** (never its contents). A successful `SSH_OK` proves SSH public-key login works for that invocation; it does not guarantee the panel is currently using the same settings or running the latest code.
+- Reset to remote hard-resets tracked files and cleans eligible untracked files. Clean exclusions for .env, *.db* and backups do not preserve tracked modifications.
+- Database backup copies only top-level *.db files into the same VM folder. It is not verified, transaction-consistent, WAL-aware or offsite, and does not cover other storage layouts.
+- Stop others & start stops other saved profiles before starting the selected app. Failure can leave those apps stopped.
+- Full removal deletes the entire bot folder, including .env, databases and in-folder backups. Canonical paths must lie under the SSH home; home/shared/hidden folders, symlinked paths and overlaps are refused before PM2 changes. Remote failure keeps the local profile but cannot reverse completed steps.
+- Reboot, package updates and swap preparation affect the whole VM. Initial PM2 startup setup still tolerates startup-hook failure; verify restoration after reboot.
 
-## Data destructive or service-impacting actions
+## Remaining limitations
 
-**Reset to remote** calls `git reset --hard` on tracked files and `git clean -fd` on eligible untracked files. It excludes `.env`, `*.db*`, and `backups/` from the clean step, **not** from resetting tracked changes. Make independent backups before resetting.
+There is no health-gated release switch, automatic rollback or offsite restore. Status describes SSH/PM2 resource state, not Discord connectivity/readiness. No dedicated SSH-key diagnostics exists; bad paths surface through local/SSH errors. Remote actions assume Bash, utilities and a privileged trusted operator. No live Oracle/Discord deployment is exercised by the automated regression suite.
 
-**Back up database** copies only top-level `*.db` files into the same VM's `DIR/backups/`; it is not verified, transactionally consistent, or offsite. Bot-specific storage (other extensions, subfolders, SQLite WAL state, cloud databases) needs its own backup method.
-
-**Stop others & start** stops every *other saved profile's* PM2 process name before starting the selected bot. A startup failure can leave those other bots stopped. **Reboot server**, **Update OS packages**, **Update npm & PM2**, and memory changes affect the entire machine.
-
-**Run command**, `buildCmd`, and `cmdSyncCmd` are deliberate arbitrary shell execution capabilities for a trusted administrator. Do not accept these commands from an untrusted webpage/user or convert this into an internet-facing service without redesign.
-
-**Remove bot** defaults to deleting only the saved profile. Server uninstall removes only its exact PM2 app and persists the startup list; full file deletion additionally removes `.env`, databases, and all in-folder backups. File deletion requires typed app-name confirmation and an extra acknowledgement, checks canonical paths under the SSH user's home, and refuses shared/hidden home folders, symlinks, and overlap with other saved bots. Settings-revision and same-server request guards prevent stale confirmations or overlapping panel work. External SSH sessions or another panel process remain outside these locks. Failure keeps the local profile but cannot reverse remote steps that already completed.
-
-## Code-backed limitations to keep in mind
-
-These are useful places for future engineering work; they are **not fixed by this documentation**.
-
-1. **Local HTTP API is not user-authenticated.** `GET /api/config` returns secrets to the local browser. The API's localhost/Host and `X-Panel` restrictions must not be mistaken for strong authentication.
-2. **Token-in-remote-URL behavior:** `authUrl()` inserts the shared token into an HTTPS URL, then `git clone` or `git remote set-url` can persist it in the remote checkout's `.git/config`. Review token rotation and prefer credential handling that avoids leaving tokens in remote URLs.
-3. **Streaming token masking is best-effort:** because replacement runs independently on each output chunk, a secret split across chunks can evade masking. Commands or Git tools can emit other encoded forms too.
-4. **Upload size and cleanup:** `/api/upload` buffers the full incoming body in RAM and doesn't impose a request size limit. The temporary directory is removed in the normal code path, but errors before cleanup can leave local temporary files.
-5. **Fixed-name code archive:** local bot upload uses the shared temp filename `bot-upload.tgz` and remote `/tmp/bot-upload.tgz`; overlapping uploads/processes could clash, and the local archive is not explicitly deleted.
-6. **Permission repair flow:** the **Fix key permissions** action uses two `icacls` invocations joined by JavaScript `||`. The second runs when the first returns `0` (success) and is **skipped** if the first returns a truthy failure code; repair is not guaranteed. This button changes Windows ACLs and should be used with care.
-7. **No end-to-end rollback:** deployments execute package install, build, command sync, and PM2 restart, but there is no versioned release switch, health gate, automatic rollback, or offsite database restore.
-8. **Cancellation isn't undo:** clicking Cancel aborts the HTTP request and asks to kill the local child. A remote command that has already made changes may not be rolled back just because the dashboard disconnects.
-9. **Validation is specialized:** bot app names and directory separation are validated, but build/sync/custom command strings and many remote paths are trusted administrator input; remote server actions assume the operator knows the consequences.
-10. **Status is operational, not application health:** the cards reflect SSH and `pm2 jlist` values, not Discord API connection state, ready-to-serve checks, or gateway shard health.
-11. **No remote key-file existence verification before action:** blank/missing/wrong local SSH paths surface as SSH failures instead of a dedicated key diagnostics page.
-12. **PM2 startup initialization isn't guaranteed:** `pm2 startup systemd ...` in Initial setup is followed by `|| true`; startup-hook failure won't necessarily stop setup. Verify bot restoration after a reboot.
-13. **GET route fallback is broad:** other unknown GET paths receive the HTML dashboard, not an HTTP 404. This is acceptable for a simple local app but isn't a conventional router.
-14. **Single local user/session assumption:** most actions rely on browser busy state, without a general server-wide queue or multi-user authorization. Removal is stricter: it requires other POST requests to finish and blocks new POST work during cleanup, within that server instance.
-
-## Practical protection checklist
-
-- [ ] Keep the panel bound to loopback only; do not publish it to the public internet.
-- [ ] Restrict OS permissions on private keys, `.env`, `config.json`, backups, and saved console outputs.
-- [ ] Keep GitHub token permissions as narrow as possible; avoid tokens for public read-only repositories.
-- [ ] Put each bot in its own folder with a unique PM2 app name.
-- [ ] Verify backups cover your **actual** databases and are stored away from the VM as well.
-- [ ] Confirm the selected bot before resetting files, flushing logs, or stopping other processes.
-- [ ] Test restoration after reboot, especially on memory-constrained VMs.
-- [ ] Review the source before adding authentication, remote access, or additional file upload capabilities.
+Keep the panel folder and local machine trusted, use separate bot folders/credentials, check the selected target before destructive work, and maintain bot-specific backups outside the VM.

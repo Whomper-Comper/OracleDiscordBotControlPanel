@@ -1,0 +1,1 @@
+uptime; echo; free -h; echo; df -h /; echo; du -sh "$DIR" 2>/dev/null; echo; ps aux --sort=-%mem | head -6

@@ -1,0 +1,1 @@
+cd "$DIR"; mkdir -p backups; for f in *.db; do [ -f "$f" ] && cp "$f" "backups/${f%.db}-$(date +%Y%m%d-%H%M%S).db" && echo "saved $f"; done; ls -lh backups | tail -8

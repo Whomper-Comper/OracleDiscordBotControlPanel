@@ -1,0 +1,1 @@
+pm2 logs "$APP" --nostream --raw --lines {{lines}}{{log_err}} 2>&1{{log_filter}}; true

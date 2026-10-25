@@ -262,10 +262,10 @@ return http.createServer(async (req, res) => {
     if (u === '/api/config') return json(res, configView(store.read()));
     if (u === '/panel-ui.js' || u === '/dashboard.js') {
       res.writeHead(200, { 'Content-Type': 'text/javascript;charset=utf-8' });
-      return res.end(fs.readFileSync(path.join(__dirname, u.slice(1))));
+      return res.end(fs.readFileSync(path.join(__dirname, '../..', u.slice(1))));
     }
     res.writeHead(200, { 'Content-Type': 'text/html;charset=utf-8' });
-    return res.end(fs.readFileSync(path.join(__dirname, 'index.html')));
+    return res.end(fs.readFileSync(path.join(__dirname, '../..', 'index.html')));
   }
   if (req.headers['x-panel'] !== '1') { res.writeHead(403); return res.end('Forbidden'); }
   if (removing) throw new Error('Bot removal is in progress. Wait before starting another action.');

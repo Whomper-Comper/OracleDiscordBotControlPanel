@@ -39,3 +39,9 @@ coverage/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Rust build output and project-local development tools.
+/target/
+/dist/
+/.tools/
+/.superpowers/

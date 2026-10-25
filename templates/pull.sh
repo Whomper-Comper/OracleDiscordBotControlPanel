@@ -1,0 +1,1 @@
+set -e; cd "$DIR"; git pull --ff-only origin {{branch}}; git log -3 --oneline
