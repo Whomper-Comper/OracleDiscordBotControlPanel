@@ -2,6 +2,8 @@
 
 The panel persists state in `config.json` beside the executable, or the path supplied through `--config`. `src/profiles.rs` owns migration, selection, validation, and writes. The browser **auto-saves settings on `change` events**, not each keystroke; leaving a field usually triggers the save.
 
+Save manually edited configuration as UTF-8; an optional UTF-8 byte-order mark from Windows editors is supported. The first-write backup preserves the original file bytes.
+
 The save indicator at the top of the sidebar shows saving, saved, and failed states. Expand **Build commands & local files** to edit build/sync commands, the managed entry file, `localEnv`, and `localBot`. If initial settings loading fails, **Retry loading settings** attempts to load them again after the local panel is available.
 
 > `config.json` is a credential-bearing **runtime file**. The example below is illustrative; do not replace your working config unless you mean to reconfigure the panel.

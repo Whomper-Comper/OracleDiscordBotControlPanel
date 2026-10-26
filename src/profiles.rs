@@ -348,7 +348,7 @@ impl Repository {
     pub fn read(&self) -> Result<Store> {
         match fs::read(&self.path) {
             Ok(raw) => Store::normalize(
-                serde_json::from_slice(&raw)
+                serde_json::from_slice(raw.strip_prefix(b"\xef\xbb\xbf").unwrap_or(&raw))
                     .context("Could not parse config.json; your existing file was preserved")?,
             ),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Store::normalize(json!({})),

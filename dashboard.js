@@ -108,6 +108,7 @@ function outputCount() {
   $('#jump').hidden = !total || nearBottom();
 }
 function line(text, level) {
+  text = text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').replace(/\r/g, '');
   const follow = $('#outputfollow').checked && nearBottom(), element = document.createElement('div');
   element.className = level || ui.outputLevel(text); element.textContent = text || ' ';
   element.hidden = !ui.matchesOutput(text, $('#outputsearch').value, $('#outputerrors').checked);
@@ -115,7 +116,7 @@ function line(text, level) {
   if (follow) T.scrollTop = T.scrollHeight;
   outputCount();
 }
-function put(text) { buf += text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').replace(/\r/g, ''); const lines = buf.split('\n'); buf = lines.pop(); lines.forEach(text => line(text)); }
+function put(text) { buf += text; const lines = buf.split('\n'); buf = lines.pop(); lines.forEach(text => line(text)); }
 function flush() { if (buf) { line(buf); buf = ''; } }
 function filterOutput() { [...T.children].forEach(e => { e.hidden = !ui.matchesOutput(e.textContent, $('#outputsearch').value, $('#outputerrors').checked); }); outputCount(); }
 const fullOutput = () => [...T.children].map(e => e.textContent).join('\n');

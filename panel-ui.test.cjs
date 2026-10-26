@@ -2,6 +2,22 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const ui = require('./panel-ui.js');
 
+test('dashboard output removes ANSI colors split across streamed network chunks', () => {
+  const fs = require('node:fs'), vm = require('node:vm');
+  const nodes = new Map();
+  const element = () => ({ children: [], dataset: {}, value: '', checked: false, scrollHeight: 0, scrollTop: 0, clientHeight: 0,
+    classList: { toggle() {} }, setAttribute() {}, addEventListener() {}, append(child) { this.children.push(child); } });
+  const getNode = selector => { if (!nodes.has(selector)) nodes.set(selector, element()); return nodes.get(selector); };
+  const document = { querySelector: getNode, querySelectorAll: () => [], createElement: element,
+    addEventListener() {}, body: element() };
+  const context = vm.createContext({ document, PanelUI: ui, fetch: () => new Promise(() => {}),
+    addEventListener() {}, setInterval() {}, clearInterval() {} });
+  vm.runInContext(fs.readFileSync(require.resolve('./dashboard.js'), 'utf8'), context);
+  vm.runInContext("put('\\x1b['); put('31mBuild failed\\x1b'); put('[0m\\r\\n'); put('\\x1b[3'); put('2mFinished\\x1b[0m'); flush();", context);
+  assert.deepEqual(nodes.get('#t').children.map(node => node.textContent), ['Build failed', 'Finished']);
+  assert.equal(nodes.get('#t').children[0].className, 'e');
+});
+
 test('fleet search matches display names and PM2 names without changing the saved list', () => {
   const bots = [{ name: 'Music bot', app: 'music-prod' }, { name: 'Moderator', app: 'mod' }];
   assert.deepEqual(bots.filter(b => ui.matchesBot(b, '  MUSIC  ')), [bots[0]]);

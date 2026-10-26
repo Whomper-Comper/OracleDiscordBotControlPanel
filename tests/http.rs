@@ -42,6 +42,48 @@ async fn embedded_assets_are_served_without_source_directory() {
 }
 
 #[tokio::test]
+async fn sensitive_responses_are_never_cacheable() {
+    let (_d, app) = fixture();
+    for (method, path, body, status) in [
+        ("GET", "/api/config", json!({}), StatusCode::OK),
+        (
+            "POST",
+            "/api/config",
+            json!({"token":"test-credential","host":"example.test"}),
+            StatusCode::OK,
+        ),
+        (
+            "POST",
+            "/api/profiles",
+            json!({"action":"unknown"}),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            "POST",
+            "/api/run",
+            json!({"action":"unknown"}),
+            StatusCode::OK,
+        ),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(request(method, path, body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), status);
+        assert_eq!(
+            response
+                .headers()
+                .get("cache-control")
+                .and_then(|h| h.to_str().ok()),
+            Some("no-store"),
+            "{method} {path} must not allow credentials or output to be stored"
+        );
+        response.into_body().collect().await.unwrap();
+    }
+}
+
+#[tokio::test]
 async fn host_header_and_post_guard_are_enforced() {
     let (_d, app) = fixture();
     let r = app

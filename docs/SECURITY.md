@@ -4,7 +4,7 @@ This is a **trusted local administrator tool**. Anyone operating the panel can d
 
 ## Local access
 
-The listener binds only to 127.0.0.1, checks localhost/127.0.0.1 Host with its port, requires X-Panel: 1 for POST and rejects mismatched supplied Origin headers. These restrictions are not user authentication or protection against untrusted local software. GET /api/config returns credentials to the browser. Do not expose the listener through tunnels, proxies or changed network boundaries without designing authentication and authorization.
+The listener binds only to 127.0.0.1, checks localhost/127.0.0.1 Host with its port, requires X-Panel: 1 for POST and rejects mismatched supplied Origin headers. These restrictions are not user authentication or protection against untrusted local software. GET /api/config returns credentials to the browser. Every response uses Cache-Control: no-store so browsers and intermediaries are instructed not to retain settings, output or errors in HTTP caches. Do not expose the listener through tunnels, proxies or changed network boundaries without designing authentication and authorization.
 
 POST operations are serialized within this server process; mutations cancel background status checks. Removal also requires an unchanged config revision, typed app confirmation and an extra file-deletion acknowledgement. These checks do not coordinate other panel instances or external SSH sessions.
 

@@ -95,6 +95,16 @@ fn resolved(store: &Store, input: &Value) -> Result<Value> {
 }
 
 async fn handle(State(state): State<AppState>, req: Request) -> Response {
+    let mut response = handle_request(state, req).await;
+    // Config, action output and errors can all contain administrator credentials.
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    response
+}
+
+async fn handle_request(state: AppState, req: Request) -> Response {
     let host = req
         .headers()
         .get("host")

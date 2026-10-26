@@ -83,3 +83,21 @@ fn repository_backs_up_once_preserves_invalid_file_and_empty_fleet() {
     assert!(repo.read().is_err());
     assert_eq!(std::fs::read_to_string(path).unwrap(), "broken");
 }
+
+#[test]
+fn repository_reads_utf8_bom_from_windows_editors() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    let original = b"\xef\xbb\xbf{\"host\":\"example.test\",\"name\":\"Windows config\"}";
+    std::fs::write(&path, original).unwrap();
+    let repo = Repository { path: path.clone() };
+    let store = repo.read().unwrap();
+    assert_eq!(store.server.host, "example.test");
+    assert_eq!(store.bots[0].name, "Windows config");
+    repo.write(&store).unwrap();
+    assert_eq!(repo.read().unwrap().bots[0].name, "Windows config");
+    assert_eq!(
+        std::fs::read(dir.path().join("config.json.pre-profiles.bak")).unwrap(),
+        original
+    );
+}
