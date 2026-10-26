@@ -1,3 +1,5 @@
+# 100% AI SLOP
+
 # Oracle Discord Bot Control Panel
 
 A **local Windows dashboard** for deploying and managing Discord bots on an Oracle Cloud Linux VM over SSH/SCP and PM2. The backend is **Rust**, with the existing HTML/JavaScript dashboard embedded in a portable executable. This panel runs on your Windows PC, not on the VM.
