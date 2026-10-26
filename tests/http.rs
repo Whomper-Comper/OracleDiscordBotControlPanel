@@ -28,6 +28,174 @@ fn request(method: &str, url: &str, body: Value) -> Request<Body> {
 }
 
 #[tokio::test]
+async fn path_previews_use_config_directory_without_saving_settings() {
+    let (d, app) = fixture();
+    std::fs::write(d.path().join("identity.pub"), "test").unwrap();
+    std::fs::write(d.path().join("bot.env"), "test").unwrap();
+    std::fs::create_dir(d.path().join("bot")).unwrap();
+    let r = app
+        .oneshot(request(
+            "POST",
+            "/api/paths",
+            json!({
+                "key":"\"identity.pub\"", "localEnv":"bot.env", "localBot":"bot"
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    assert_eq!(r.headers()["cache-control"], "no-store");
+    let v: Value =
+        serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(
+        std::path::Path::new(v["key"]["resolved"].as_str().unwrap()),
+        d.path().join("identity.pub")
+    );
+    assert!(v["key"]["warning"].as_str().unwrap().contains("private"));
+    for field in ["key", "localEnv", "localBot"] {
+        assert!(v[field]["error"].is_null());
+    }
+    assert!(!d.path().join("config.json").exists());
+}
+
+#[tokio::test]
+async fn previews_reject_untrusted_requests_and_invalid_values() {
+    let (_d, app) = fixture();
+    for header in ["origin", "x-panel", "host"] {
+        let mut req = request("POST", "/api/paths", json!({}));
+        req.headers_mut()
+            .insert(header, "https://evil.test".parse().unwrap());
+        assert_eq!(
+            app.clone().oneshot(req).await.unwrap().status(),
+            StatusCode::FORBIDDEN
+        );
+    }
+    for body in [json!([]), json!({"key":42})] {
+        assert_eq!(
+            app.clone()
+                .oneshot(request("POST", "/api/paths", body))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+    }
+}
+
+#[tokio::test]
+async fn preview_does_not_wait_for_an_active_action() {
+    let (_d, app) = fixture();
+    let (started, ready) = tokio::sync::oneshot::channel();
+    let stream = futures_util::stream::once(async move {
+        let _ = started.send(());
+        std::future::pending::<Result<axum::body::Bytes, std::io::Error>>().await
+    });
+    let mut req = request("POST", "/api/config", json!({}));
+    *req.body_mut() = Body::from_stream(stream);
+    let action = tokio::spawn(app.clone().oneshot(req));
+    ready.await.unwrap(); // The action holds the gate while it awaits its body.
+    let preview = tokio::time::timeout(
+        std::time::Duration::from_secs(1),
+        app.oneshot(request("POST", "/api/paths", json!({}))),
+    )
+    .await;
+    action.abort();
+    assert_eq!(
+        preview
+            .expect("Preview must not wait for the operation gate")
+            .unwrap()
+            .status(),
+        StatusCode::OK
+    );
+}
+
+#[tokio::test]
+async fn action_path_preflight_uses_config_base_and_ignores_unused_paths() {
+    let (d, app) = fixture();
+    std::fs::write(d.path().join("identity"), "test").unwrap();
+    let r = app.clone().oneshot(request("POST", "/api/run", json!({
+        "action":"unknown", "cfg":{"host":"example.test","key":"identity", "localEnv":"missing.env","localBot":"missing-dir"}
+    }))).await.unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let output =
+        String::from_utf8(r.into_body().collect().await.unwrap().to_bytes().to_vec()).unwrap();
+    assert!(output.contains("Unknown action")); // No SSH is invoked by this action.
+    for (field, value, action) in [
+        ("key", "missing-key", "unknown"),
+        ("key", ".", "unknown"),
+        ("localEnv", "missing.env", "env"),
+        ("localBot", "missing-dir", "code"),
+    ] {
+        let mut cfg = json!({"host":"example.test","key":"identity"});
+        cfg[field] = json!(value);
+        let r = app
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/api/run",
+                json!({"action":action,"cfg":cfg}),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(r.status(), StatusCode::BAD_REQUEST, "{field}: {value}");
+    }
+    assert!(!d.path().join("config.json").exists());
+}
+
+#[tokio::test]
+async fn quoted_paths_keep_significant_spaces_after_config_normalization() {
+    let (d, app) = fixture();
+    std::fs::write(d.path().join(" identity"), "test").unwrap();
+    let r = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            "/api/config",
+            json!({"host":"example.test","key":"\" identity\""}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let saved: Value =
+        serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(saved["key"], " identity");
+    let preview = app
+        .clone()
+        .oneshot(request("POST", "/api/paths", json!({"key":saved["key"]})))
+        .await
+        .unwrap();
+    let preview: Value =
+        serde_json::from_slice(&preview.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert!(preview["key"]["error"].is_null());
+    let r = app
+        .oneshot(request("POST", "/api/run", json!({"action":"unknown"})))
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let output =
+        String::from_utf8(r.into_body().collect().await.unwrap().to_bytes().to_vec()).unwrap();
+    assert!(output.contains("Unknown action"));
+}
+
+#[tokio::test]
+async fn blank_commands_are_rejected_before_remote_work_or_saving() {
+    let (d, app) = fixture();
+    let r = app
+        .oneshot(request(
+            "POST",
+            "/api/run",
+            json!({"action":"custom","params":{"cmd":" \r\n\t "}}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::BAD_REQUEST);
+    let v: Value =
+        serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert!(v["error"].as_str().unwrap().contains("command"));
+    assert!(!d.path().join("config.json").exists());
+}
+
+#[tokio::test]
 async fn embedded_assets_are_served_without_source_directory() {
     let (_d, app) = fixture();
     for path in ["/", "/dashboard.js", "/panel-ui.js"] {

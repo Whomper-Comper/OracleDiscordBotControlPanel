@@ -4,7 +4,9 @@ The panel persists state in `config.json` beside the executable, or the path sup
 
 Save manually edited configuration as UTF-8; an optional UTF-8 byte-order mark from Windows editors is supported. The first-write backup preserves the original file bytes.
 
-The SSH key, local `.env` file and local bot folder accept Windows **Copy as path** values such as `"C:\Users\Your Name\ssh-key.key"`. Matching outer double quotes and whitespace outside those quotes are removed automatically, including when loading existing settings. Spaces within the path are preserved.
+The SSH key, local `.env` file and local bot folder accept Windows **Copy as path** values such as `"C:\Users\Your Name\ssh-key.key"`. Matching outer double quotes and whitespace outside those quotes are removed automatically, including when loading existing settings. Spaces within the path are preserved. Leading `~` and `%USERPROFILE%` (case-insensitive) refer to the local user's home folder. Relative paths resolve against the directory containing the chosen `config.json`, not the process working directory. Resolution happens when used; saved settings retain portable shorthand and relative spelling.
+
+The preview below each local-path field shows its resolved location and actionable errors for a missing path or the wrong file/directory type. Key and `.env` fields require files; the source folder requires a directory. A `.pub` key produces a warning to choose the private key, not a validation failure. Previews inspect metadata without reading file contents or interrupting actions. Operations validate only the paths they need: a missing upload file/folder does not block status or unrelated actions. Leave the SSH key blank to use the agent/default identities.
 
 The save indicator at the top of the sidebar shows saving, saved, and failed states. Expand **Build commands & local files** to edit build/sync commands, the managed entry file, `localEnv`, and `localBot`. If initial settings loading fails, **Retry loading settings** attempts to load them again after the local panel is available.
 
@@ -55,7 +57,7 @@ The `activeBotId` points to an existing `bots[].id` and identifies which profile
 | `host` | VM hostname or public IP | Blank host prevents remote actions. |
 | `port` | SSH port as string | Default `22`. |
 | `user` | Linux SSH account | Default `opc`; also determines generated new-bot home folder. |
-| `key` | **Windows-local** private key filepath | Passed to `ssh`/`scp` with `-i` when nonempty. Do not enter a `.pub` public key or remote path. |
+| `key` | **Windows-local** private key filepath | Resolved and checked before `ssh`/`scp`, then passed with `-i` when nonempty. Blank uses agent/default identities. Choose the private key, not its `.pub` file or a remote path. |
 | `token` | GitHub HTTPS repository access token | Optional for public repos; injected into HTTPS repo URL when configured. Shared by all bot profiles. |
 
 **Only these five fields are shared.** Editing them impacts all bot profiles because all bots are reached through the same connection settings.
@@ -78,6 +80,12 @@ The `activeBotId` points to an existing `bots[].id` and identifies which profile
 | `entryFile` | Script to launch for a **managed** bot | Optional; takes precedence over repo ecosystem config and fallback `npm start`. |
 
 Unknown `botId` values are rejected. Attempts to set arbitrary fields (such as `managed` and `id`) through `POST /api/config` are filtered by the whitelists in `src/profiles.rs`.
+
+## Browser preferences and command history
+
+**Remember preferences** starts off and is separate from auto-saved bot/server configuration. Opting in stores only log line count, remote-log **Errors only**, output **Errors only** and auto-refresh in this browser's local storage. Turning it off deletes those persisted choices and keeps the current view until reload. Invalid or unavailable browser storage does not prevent using the panel.
+
+Commands, search terms, output and credentials are never stored as UI preferences. **Run command** keeps up to 50 commands only in page memory; Up/Down navigates them and restores an unfinished draft after the newest entry. Reloading the page clears that history. Empty or whitespace-only commands cannot save settings or start an SSH action.
 
 ## Creating a new profile
 

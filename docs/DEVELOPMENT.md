@@ -2,6 +2,8 @@
 
 Install stable Rust and its native linker prerequisites. Windows MSVC normally requires Visual Studio C++ Build Tools and the Windows SDK; GNU requires compatible MinGW tools. End users need neither Rust nor Node.
 
+Routine source checks and tests are allowed. Automated contributors must obtain explicit user approval for each release build.
+
 ```powershell
 cargo run -- --config ./config.json --no-browser
 cargo fmt --check
@@ -38,6 +40,10 @@ These also run panel-ui.test.cjs and the original backend regressions. Bash fixt
 UI work lives in root HTML/JS. Profile changes belong in typed structs, allowlists, defaults, validation and docs. Decide explicitly whether duplication copies new fields. Remote actions use embedded templates and scripts::q for data. Build/sync/custom text intentionally executes as shell code.
 
 Local orchestration belongs in http.rs and process.rs. Preserve scoped temp files, POST serialization, concurrent stdout/stderr draining, cancellation and final output markers. HTTP 200 alone never establishes remote success.
+
+Use the shared local-path resolver for previews and operations. Resolve quoted paths, leading `~`/case-insensitive `%USERPROFILE%` and config-relative paths at use time; retain portable spelling in persisted settings. Validate only the local paths needed by the action and allow an empty SSH identity for agent/default behavior. POST /api/paths accepts `{key,localEnv,localBot}` and returns `{resolved,error,warning}` for each field. Keep this metadata-only endpoint outside action locking/cancellation while retaining Host/Origin/X-Panel checks; a `.pub` suffix is a warning only.
+
+Keep UI persistence opt-in with an explicit allowlist: log count, both Errors only controls and auto-refresh. Handle malformed/unavailable storage, and remove persisted choices when disabled without resetting the current view. Command history remains in page memory (50 entries, Up/Down and draft restoration); never persist commands, searches, output or credentials as preferences. Both UI and API must reject blank commands before save or SSH. Cover resolver/preview parity, action-specific validation, preview concurrency/guards, preference opt-in/clearing and command navigation in regression checks.
 
 package.ps1 builds with Cargo.lock, stages safe files and emits ignored dist outputs. -Target selects an installed target; -SkipBuild packages a verified release without rebuilding the EXE. Working config and credentials are never staged. Ask the user before rebuilding release binaries. Pushes and pull requests run Rust/JS checks only; Windows packaging and artifact uploads require a manual workflow run with build_package enabled after approval. Publish verified, matching artifacts on GitHub Releases. Packages are unsigned.
 

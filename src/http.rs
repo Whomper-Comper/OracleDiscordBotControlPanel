@@ -1,4 +1,5 @@
 use crate::{
+    local_paths::LocalPaths,
     process,
     profiles::{Repository, Store},
     scripts::{self, q, text},
@@ -94,6 +95,72 @@ fn resolved(store: &Store, input: &Value) -> Result<Value> {
         .active(input["botId"].as_str().filter(|s| !s.is_empty()))
 }
 
+fn local_paths(config: &Path) -> Result<LocalPaths> {
+    let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from);
+    LocalPaths::new(config, home)
+}
+
+async fn prepare_paths(repo: &Repository, mut c: Value, action: &str) -> Result<Value> {
+    let config = repo.path.clone();
+    let action = action.to_owned();
+    // Metadata on a network share can block; keep it off the async runtime.
+    tokio::task::spawn_blocking(move || {
+        let paths = local_paths(&config)?;
+        if action == "fixkey" || paths.resolve(text(&c, "key"))?.is_some() {
+            c["key"] = json!(
+                paths
+                    .require_file(text(&c, "key"), "SSH private key")?
+                    .to_string_lossy()
+            );
+        } else {
+            c["key"] = json!("");
+        }
+        if action == "env" {
+            c["localEnv"] = json!(
+                paths
+                    .require_file(text(&c, "localEnv"), "Local .env file")?
+                    .to_string_lossy()
+            );
+        }
+        if action == "code" {
+            c["localBot"] = json!(
+                paths
+                    .require_dir(text(&c, "localBot"), "Local bot folder")?
+                    .to_string_lossy()
+            );
+        }
+        Ok(c)
+    })
+    .await?
+}
+
+async fn preview_paths(repo: Repository, req: Request) -> Result<Response> {
+    let bytes = to_bytes(req.into_body(), 1024 * 1024)
+        .await
+        .context("JSON body exceeds limit or could not be read")?;
+    let input: Value = serde_json::from_slice(&bytes).context("Invalid JSON body")?;
+    if !input.is_object() {
+        bail!("JSON body must be an object");
+    }
+    for field in ["key", "localEnv", "localBot"] {
+        if input.get(field).is_some_and(|value| !value.is_string()) {
+            bail!("{field} must be a string");
+        }
+    }
+    let previews = tokio::task::spawn_blocking(move || -> Result<Value> {
+        let paths = local_paths(&repo.path)?;
+        Ok(json!({
+            "key": paths.preview("key", text(&input, "key")),
+            "localEnv": paths.preview("localEnv", text(&input, "localEnv")),
+            "localBot": paths.preview("localBot", text(&input, "localBot"))
+        }))
+    })
+    .await??;
+    Ok(json(previews))
+}
+
 async fn handle(State(state): State<AppState>, req: Request) -> Response {
     let mut response = handle_request(state, req).await;
     // Config, action output and errors can all contain administrator credentials.
@@ -142,6 +209,12 @@ async fn handle_request(state: AppState, req: Request) -> Response {
         && origin != format!("http://{host}")
     {
         return error(StatusCode::FORBIDDEN, "Forbidden origin");
+    }
+    if path == "/api/paths" {
+        return match preview_paths(state.repo, req).await {
+            Ok(response) => response,
+            Err(e) => error(StatusCode::BAD_REQUEST, format!("{e:#}")),
+        };
     }
     if ![
         "/api/config",
@@ -302,6 +375,7 @@ async fn post(
         if text(&c, "host").is_empty() {
             bail!("Set the host / IP first");
         }
+        let c = prepare_paths(&state.repo, c, "upload").await?;
         let temp = tempfile::tempdir()?;
         let file = temp.path().join("file");
         let mut dest = tokio::fs::File::create(&file).await?;
@@ -358,7 +432,7 @@ async fn post(
                 }
                 "remove" => {
                     let id = text(&b, "id");
-                    let c = store.active(Some(id))?;
+                    let mut c = store.active(Some(id))?;
                     if text(&b, "revision") != store.revision(id)? {
                         bail!("Bot or server settings changed. Reopen the removal dialog.");
                     }
@@ -377,6 +451,7 @@ async fn post(
                         if text(&c, "host").is_empty() {
                             bail!("Set the host / IP before server cleanup");
                         }
+                        c = prepare_paths(&state.repo, c, "remove").await?;
                         let others = store
                             .bots
                             .iter()
@@ -408,6 +483,7 @@ async fn post(
             if text(&c, "host").is_empty() {
                 bail!("Set the host / IP first");
             }
+            let c = prepare_paths(&state.repo, c, "status").await?;
             let cancel = state.shutdown.child_token();
             *state.status.lock().unwrap() = Some(cancel.clone());
             let _scope = CancelOnDrop(cancel.clone());
@@ -418,6 +494,9 @@ async fn post(
         "/api/run" => {
             let mut c = resolved(&store, &b["cfg"])?;
             let action = text(&b, "action");
+            if action == "custom" && text(&b["params"], "cmd").trim().is_empty() {
+                bail!("Enter a command before running it");
+            }
             if action == "solo" {
                 c["otherApps"] = json!(
                     store
@@ -431,6 +510,7 @@ async fn post(
             if action != "fixkey" && text(&c, "host").is_empty() {
                 bail!("Set the host / IP first");
             }
+            let c = prepare_paths(&state.repo, c, action).await?;
             Ok(stream_action(
                 c,
                 action.into(),

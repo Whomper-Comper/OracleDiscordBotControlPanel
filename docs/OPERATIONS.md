@@ -6,7 +6,7 @@ Operations below describe **what the supplied code runs**. Most buttons act on t
 
 ### First bot on a new Oracle VM
 
-1. Set **Host/IP**, **SSH user**, **Port**, and **SSH private-key file** in the Windows sidebar.
+1. Set **Host/IP**, **SSH user**, **Port**, and **SSH private-key file** in the Windows sidebar. Leave the key blank when using agent/default identities. Check the local-path preview before connecting.
 2. Press **Test connection**. This checks remote OS version, remote identity, and whether `node`, `npm`, `pm2`, and `git` are installed.
 3. Confirm repository URL, branch, install folder, and PM2 app name. Expand **Build commands & local files** for the build command, optional slash-command sync, entry file, and Windows upload paths.
 4. Press **Initial setup**. This prepares memory if needed, installs OS requirements/Node.js 22/PM2, sets up PM2 startup, and clones/updates the repository or creates its folder.
@@ -100,7 +100,7 @@ PM2 uninstall checks the process list, removes the app if present, and uses `pm2
 | **Prepare memory** | Conditional creation/activation of `/var/swap.bot-panel` | VM swap config; persists via `/etc/fstab` if created. |
 | **Back up database** | Copy top-level `DIR/*.db` files to timestamped `DIR/backups/*.db` | Selected bot folder only; no offsite copy. |
 | **Reboot server** | `sudo reboot` | Disconnects all bots on the VM until they start again. |
-| **Run command** | Execute the exact custom shell text typed in the dashboard | Runs as configured SSH user; use only trusted commands. |
+| **Run command** | Execute the exact custom shell text typed in the dashboard | Runs as configured SSH user; use only trusted commands. Blank/whitespace-only input is blocked before saving settings or starting SSH. Up/Down recalls up to 50 commands in page memory and restores the unfinished draft after the newest entry. |
 
 ### Logs and browser controls
 
@@ -120,7 +120,10 @@ PM2 uninstall checks the process list, removes the app if present, and uses `pm2
 | **Find a bot** | Case-insensitive search of saved profile display names and PM2 app names; does not change selection or start/stop bots. |
 | **Refresh now** | Requests dashboard status immediately when a bot/host is set and the panel is available for a status check. |
 | **Refresh every 30s** | When checked, tries a status refresh every 30 seconds; it avoids overlapping checks, busy actions, and open dialogs. |
+| **Remember preferences** | Off by default. Stores log line count, both Errors only controls and auto-refresh in this browser. Turning it off clears saved choices while keeping the current view. Commands, searches, output and credentials are never saved as preferences. |
 | **Retry loading settings** | Appears after initial loading fails. Retry once the local panel is running; bot actions remain unavailable until settings load. |
+
+Command history lasts only until this page is reloaded or closed; it is never persisted. Preference storage failures do not block actions.
 
 ### Reading status and activity
 
@@ -142,6 +145,10 @@ Before setup, deployment, or npm/PM2 update, the code inspects `/proc/meminfo`:
 Swap can reduce OOM risk, but it does not guarantee an npm build will fit. Installing packages may be slow when RAM is low.
 
 ## Failure diagnosis
+
+### A local path is missing or points to the wrong kind of item
+
+Read the preview beneath the key, `.env` or source-folder field. Quoted paths are accepted; leading `~` or case-insensitive `%USERPROFILE%` expands to your local home folder. Relative paths use the directory containing your selected `config.json`. Saved shorthand stays portable. Keys and `.env` uploads need files; code uploads need a directory. Choose the private key when a `.pub` warning appears. Only paths required by the selected action can block it, so stale upload paths do not block a status check. Previews are read-only and remain independent of running actions and cancellation.
 
 ### SSH authentication fails, but CMD works
 

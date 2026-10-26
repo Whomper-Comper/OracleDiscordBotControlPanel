@@ -6,7 +6,7 @@ This is a **trusted local administrator tool**. Anyone operating the panel can d
 
 The listener binds only to 127.0.0.1, checks localhost/127.0.0.1 Host with its port, requires X-Panel: 1 for POST and rejects mismatched supplied Origin headers. These restrictions are not user authentication or protection against untrusted local software. GET /api/config returns credentials to the browser. Every response uses Cache-Control: no-store so browsers and intermediaries are instructed not to retain settings, output or errors in HTTP caches. Do not expose the listener through tunnels, proxies or changed network boundaries without designing authentication and authorization.
 
-POST operations are serialized within this server process; mutations cancel background status checks. Removal also requires an unchanged config revision, typed app confirmation and an extra file-deletion acknowledgement. These checks do not coordinate other panel instances or external SSH sessions.
+Action/configuration POST operations are serialized within this server process; mutations cancel background status checks. Read-only POST /api/paths retains the same Host, Origin and X-Panel guards but bypasses action locking and cancellation. It reports resolved paths and filesystem metadata errors without reading file contents. Removal also requires an unchanged config revision, typed app confirmation and an extra file-deletion acknowledgement. These checks do not coordinate other panel instances or external SSH sessions.
 
 ## Sensitive data
 
@@ -18,6 +18,8 @@ POST operations are serialized within this server process; mutations cancel back
 | Logs/output | Browser retained output, exports, remote PM2 logs |
 | Configuration backup | config.json.pre-profiles.bak; can retain old credentials |
 
+**Remember preferences** is opt-in and stores only log line count, the two Errors only controls and auto-refresh in this browser's local storage. Disabling it clears those saved choices without changing the current view. Credentials, output, search terms and commands are never persisted as UI preferences. Command recall is limited to 50 entries in page memory and clears on reload; it can still contain sensitive command text during that session.
+
 Keep these files private. Git excludes working config, backup/temp variants, keys, real .env, databases, archives and logs. Safe example files contain placeholders. Ignore rules do not remove already committed credentials from history; rotate exposed secrets.
 
 Config writes use a private temporary file, sync and atomic replacement. On Windows, protect the containing folder and key/config ACLs; Unix creation modes do not substitute for Windows ACLs.
@@ -27,6 +29,8 @@ Each stdout/stderr stream masks the configured token and its URL-encoded form ac
 ## SSH and shell execution
 
 OpenSSH uses optional -i, agent/default identities, BatchMode=yes, accept-new host keys and keepalives. A passphrase-protected key needs an agent because interactive prompts are disabled. Verify new host fingerprints independently: accept-new does not establish first-contact identity.
+
+Configured local key files are resolved and checked for existence/type before SSH/SCP. A blank key continues to use agent/default identities. A `.pub` suffix prompts a warning; it does not inspect key contents or validate authentication. Only paths needed by the operation are checked. Empty custom commands are rejected by both the browser and API before save or execution.
 
 Scripts are Base64-encoded before Bash execution. Encoding is not sanitization or encryption. Data values are shell-quoted and templates are expanded once. buildCmd, cmdSyncCmd and Run command are intentional arbitrary shell execution by the trusted operator.
 
@@ -50,6 +54,6 @@ Closing a streamed response cancels the job and kills/waits for the local child.
 
 ## Remaining limitations
 
-There is no health-gated release switch, automatic rollback or offsite restore. Status describes SSH/PM2 resource state, not Discord connectivity/readiness. No dedicated SSH-key diagnostics exists; bad paths surface through local/SSH errors. Remote actions assume Bash, utilities and a privileged trusted operator. No live Oracle/Discord deployment is exercised by the automated regression suite.
+There is no health-gated release switch, automatic rollback or offsite restore. Status describes SSH/PM2 resource state, not Discord connectivity/readiness. Local-path previews check location and type, not key permissions, key contents or SSH authentication. Remote actions assume Bash, utilities and a privileged trusted operator. No live Oracle/Discord deployment is exercised by the automated regression suite.
 
 Keep the panel folder and local machine trusted, use separate bot folders/credentials, check the selected target before destructive work, and maintain bot-specific backups outside the VM.

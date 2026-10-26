@@ -20,7 +20,11 @@ V2 JSON and flat legacy migration remain compatible. Config writes validate the 
 
 The frontend saves before actions, then submits a captured snapshot. /api/run applies whitelisted fields in memory; direct clients must save separately. Profile IDs and managed flags cannot be overwritten by config edits. SSH host/user/port, profile IDs, PM2 names and non-nested Linux paths are validated.
 
-Every POST takes the operation mutex. Mutations cancel the background status token. Requests wait at most two seconds before HTTP 409. Removal checks its saved revision after acquiring the mutex and forgets the profile only after remote cleanup succeeds. Another panel process or external SSH session is outside this lock.
+Action/configuration POSTs take the operation mutex. Mutations cancel the background status token. Requests wait at most two seconds before HTTP 409. Read-only POST /api/paths bypasses this mutex and does not cancel status checks or actions. Removal checks its saved revision after acquiring the mutex and forgets the profile only after remote cleanup succeeds. Another panel process or external SSH session is outside this lock.
+
+Local key, .env and source-folder paths use one resolver for previews and execution: normalize surrounding quotes, expand leading ~ or case-insensitive %USERPROFILE%, and resolve relative paths against the config file's directory at use time. Saved settings retain portable shorthand and relative spelling. Execution validates only the paths an action needs; an empty SSH key retains agent/default identity behavior. Previews inspect path metadata, not file contents; .pub identity files produce a warning without becoming a validation error.
+
+Browser preference persistence is opt-in and allowlisted to log line count, the two Errors only controls and auto-refresh. Turning it off removes the saved choices without changing the current controls. Command history holds at most 50 entries in page memory and preserves the draft while navigating with Up/Down. Blank custom commands are rejected by both the UI and API before settings save or SSH execution.
 
 ## HTTP contract
 
@@ -32,6 +36,7 @@ Bind: **127.0.0.1**, default **4321**. Host must equal localhost:PORT or 127.0.0
 | GET /panel-ui.js, /dashboard.js | Exact embedded assets |
 | GET /api/config | Merged active config, bots, activeBotId, removalRevision; includes secrets |
 | POST /api/config | Whitelisted updates, optional botId; persist and return config |
+| POST /api/paths | Read-only JSON {key,localEnv,localBot}; returns each field as {resolved,error,warning}; same Host/Origin/X-Panel guards |
 | POST /api/profiles | Add/select/duplicate/remove with existing UI payloads |
 | POST /api/status | {cfg} to readings/PM2 apps or {error} |
 | POST /api/run | {action,params,cfg} to text output and final result |

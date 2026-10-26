@@ -35,6 +35,11 @@ aside .mu{color:var(--mu);font-size:12px;margin-top:9px;overflow-wrap:anywhere}
 #sub{padding-bottom:5px}
 .settings-state{font-size:11px;color:var(--mu);min-height:18px;overflow-wrap:anywhere}
 .settings-state.e{color:var(--er)}
+.path-preview{font-size:11px;color:var(--mu);margin-top:5px;overflow-wrap:anywhere}
+.path-preview.e{color:var(--er)}.path-preview.w{color:var(--wa)}
+.preferences{margin-top:20px;padding-top:12px;border-top:1px solid var(--bd)}
+.preferences input[type=checkbox]{width:15px}.preferences label{color:var(--ink)}
+#prefnote{font-size:11px;color:var(--mu);overflow-wrap:anywhere}
 #retryload{margin-top:8px}
 .row{display:flex;gap:10px}.row>div:first-child{flex:1;min-width:0}
 .sidebar-actions{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}
@@ -135,7 +140,8 @@ dialog .g{margin-top:24px}dialog .danger{color:var(--er);overflow-wrap:anywhere}
   <details class="settings-group" open><summary>Server connection</summary>
   <label>Host / IP</label><input data-k="host" placeholder="vm.example.com">
   <div class="row"><div><label>SSH user</label><input data-k="user"></div><div style="width:70px"><label>Port</label><input data-k="port"></div></div>
-  <label>SSH key file</label><input data-k="key" placeholder="C:\Users\you\ssh-key.key">
+  <label>SSH key file</label><input data-k="key" placeholder="~\.ssh\id_ed25519" aria-describedby="path-key">
+  <div class="path-preview" id="path-key" role="status">Leave blank to use SSH agent or default identities.</div>
   <div class="g" style="margin-top:10px"><button data-a="test">Test connection</button><button data-a="fixkey" title="Fixes the 'UNPROTECTED PRIVATE KEY FILE' error on Windows">Fix key permissions</button></div>
   </details>
   <details class="settings-group"><summary>Repository &amp; deployment</summary>
@@ -152,10 +158,13 @@ dialog .g{margin-top:24px}dialog .danger{color:var(--er);overflow-wrap:anywhere}
   <label>Entry file (new bots)</label><input data-k="entryFile" placeholder="Auto: repo PM2 config or npm start">
   <div class="mu">Optional, e.g. dist/index.js. Existing bot keeps its repository's PM2 configuration.</div>
   <h2>Files on this PC</h2>
-  <label>.env file</label><input data-k="localEnv" placeholder="C:\...\discord-bot\.env">
-  <label>Bot folder</label><input data-k="localBot" placeholder="C:\...\discord-bot">
+  <label>.env file</label><input data-k="localEnv" placeholder=".\discord-bot\.env" aria-describedby="path-localEnv">
+  <div class="path-preview" id="path-localEnv" role="status">Optional: choose a local .env file to upload.</div>
+  <label>Bot folder</label><input data-k="localBot" placeholder=".\discord-bot" aria-describedby="path-localBot">
+  <div class="path-preview" id="path-localBot" role="status">Optional: choose a local bot folder to upload.</div>
   <button id="envpick" style="margin-top:10px">Choose .env file and upload</button><input type="file" id="envf" hidden>
   </details>
+  <div class="preferences"><label><input type="checkbox" id="rememberprefs" aria-describedby="prefnote"> Remember display preferences</label><div id="prefnote" role="status">Off · Display choices last for this session only.</div></div>
 </aside>
 <main id="main" tabindex="-1">
   <div class="top"><div class="top-info"><div class="eyebrow">DASHBOARD</div><h2 id="nm">Oracle VM</h2><div class="target" id="targetinfo"></div><div class="status-note" id="statusnote">Status not checked</div></div><div class="top-actions"><div class="g"><a class="button-link" href="#settings">Settings</a><button type="button" id="refresh">↻ Refresh status</button></div><label><input type="checkbox" id="auto" checked> Auto-refresh · 30s</label></div></div>
@@ -181,7 +190,7 @@ dialog .g{margin-top:24px}dialog .danger{color:var(--er);overflow-wrap:anywhere}
     <section><h3>Server maintenance</h3><p>Server-wide changes can affect every bot on this VM.</p><div class="g">
       <button data-a="setup">Initial setup</button><button data-a="sysupdate">Update OS packages</button><button data-a="npmupdate">Update npm &amp; PM2</button>
       <button data-a="sysinfo">Disk &amp; memory</button><button data-a="memory" title="Adds 2 GiB swap on low-memory VMs when needed">Prepare memory</button><button data-a="backup">Back up database</button><button class="d" data-a="reboot">Reboot server</button></div></section>
-    <section><h3>Run a command</h3><div class="cmdrow"><input id="cmd" aria-label="Custom server command" placeholder="Command to run on the server" spellcheck="false"><button data-a="custom">Run</button></div></section>
+    <section><h3>Run a command</h3><div class="cmdrow"><input id="cmd" aria-label="Custom server command" aria-describedby="commandhint" placeholder="Command to run on the server" spellcheck="false"><button data-a="custom" disabled>Run</button></div><div class="muted" id="commandhint">↑ / ↓ recalls commands from this session and restores your unfinished draft.</div></section>
   </div>
   </details></div>
   <div class="term"><div class="tb"><strong>Action output <small class="muted" id="outputcount"></small></strong><button data-a="abort" id="abort" disabled>Cancel action</button><button id="jump" hidden>Jump to latest</button><button id="cp">Copy all</button><button id="sv">Save all</button><button id="cl">Clear</button></div><div class="activity" id="activity" data-state="idle"><span id="activitytext" role="status" aria-live="polite">Ready when you are</span><small id="activitytime" aria-hidden="true"></small></div><div class="output-tools"><input class="toolbar-input" id="outputsearch" type="search" aria-label="Search displayed output" placeholder="Search output…"><label><input type="checkbox" id="outputerrors"> Errors only</label><label><input type="checkbox" id="outputfollow" checked> Follow output</label></div><div id="outempty" hidden>No output matches these filters.</div><div id="t" role="log" aria-live="off" aria-label="Action output" tabindex="0"></div></div>

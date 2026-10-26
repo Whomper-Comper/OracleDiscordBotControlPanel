@@ -6,10 +6,10 @@ A **local Windows dashboard** for deploying and managing Discord bots on an Orac
 
 ## Run the Windows executable
 
-1. Download the `OracleBotControlPanel-windows-x64` artifact from this repository's **GitHub Actions** run, or build it below. Extract the ZIP into a writable user folder.
+1. Download `OracleBotControlPanel-windows-x64.zip` from [GitHub Releases](https://github.com/Whomper-Comper/OracleDiscordBotControlPanel/releases), or build it below. Extract the ZIP into a writable user folder.
 2. Keep your existing `config.json` beside `oracle-bot-panel.exe` when upgrading. For a new installation, optionally copy `config.example.json` to `config.json`. Private settings are never packaged.
 3. Double-click the EXE or `Launch-Control-Panel.cmd`. It opens **http://localhost:4321** after binding successfully. Keep the terminal open; Ctrl+C stops the panel.
-4. Enter the server host, SSH user/port and absolute local private-key filename. Use **Test connection**, then set the selected bot's repository, folder and unique PM2 app name.
+4. Enter the server host, SSH user/port and local private-key filename (or leave it blank for SSH agent/default identities). Use **Test connection**, then set the selected bot's repository, folder and unique PM2 app name.
 5. Use **Initial setup** for a fresh VM or **Add bot → Create & prepare** for an existing VM. Upload each bot's own .env, deploy, then check PM2 status and logs.
 
 **Running the EXE requires no local Node.js, Rust, npm install, frontend build or webview runtime.** Windows `ssh`, `scp` and `tar` must be on PATH for remote operations. SSH must work without interactive password/passphrase prompts, typically through an agent. Node/npm/PM2 remain requirements on the VM; Initial setup installs the usual tooling on supported dnf/apt-get systems.
@@ -27,6 +27,8 @@ The listener always binds to **127.0.0.1**. This is a trusted local administrato
 
 Install stable Rust and its native linker prerequisites. Windows MSVC builds normally need Visual Studio C++ Build Tools and the Windows SDK.
 
+Automated contributors must ask before rebuilding the release EXE; routine source checks and tests do not need build approval.
+
 ```powershell
 cargo test --locked
 cargo build --release --locked
@@ -39,7 +41,7 @@ Outputs:
 - `dist/oracle-bot-panel.exe` — portable copy.
 - `dist/OracleBotControlPanel-windows-x64.zip` — EXE, launcher, safe examples and docs.
 
-The repository launcher passes root config.json explicitly when using target/release. For development use `cargo run -- --config ./config.json --no-browser`. The package script accepts `-Target x86_64-pc-windows-msvc` (or an installed GNU target) and `-SkipBuild`. GitHub Actions runs the checks and uploads the package on pushes and pull requests.
+The repository launcher passes root config.json explicitly when using target/release. For development use `cargo run -- --config ./config.json --no-browser`. The package script accepts `-Target x86_64-pc-windows-msvc` (or an installed GNU target) and `-SkipBuild` to package an already verified matching build. GitHub Actions runs checks on pushes and pull requests; packaging requires an approved manual workflow run.
 
 ## Documentation
 
@@ -75,9 +77,13 @@ Legacy profiles retain repository PM2 configs. Managed profiles use `~/.bot-pane
 
 ## Output and settings
 
+Local key, `.env` and source-folder paths accept quoted paths, leading `~` and case-insensitive `%USERPROFILE%`. Relative paths resolve from the config file's folder when used, while saved settings retain their portable form. Previews below these fields show the resolved location, missing/wrong-type errors and a warning for `.pub` keys. Only paths needed by an action are validated; unused upload paths do not block status checks.
+
 Settings save on field changes; check the save indicator. Only the final streamed `✔ Done` establishes success. HTTP 200 alone does not. Cancel stops local subprocess work, not completed remote changes. Output filters hide lines; Copy all/Save all include all retained lines, up to 5,000. Status refreshes every 30 seconds and measures SSH/PM2, not Discord readiness.
 
-Browser uploads stream to temporary disk files with a **64 MiB limit per file**. POST operations are serialized; conflicting work returns an error after a short wait. Mutations cancel background status checks.
+**Remember preferences** is off by default. Opt in to remember log line count, both **Errors only** controls and auto-refresh in this browser. Turning it off clears saved choices while keeping the current view. Commands, searches, output and credentials are never stored as UI preferences. In **Run command**, Up/Down recalls up to 50 commands for this page session and restores your unfinished draft; blank commands are blocked.
+
+Browser uploads stream to temporary disk files with a **64 MiB limit per file**. Action POST operations are serialized; conflicting work returns an error after a short wait. Mutations cancel background status checks. Read-only path previews run independently of action locking and cancellation.
 
 ## Troubleshooting and private data
 

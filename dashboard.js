@@ -4,8 +4,11 @@ const metrics = [['state', 'Bot'], ['up', 'Bot uptime'], ['mem', 'Bot memory'], 
 let buf = '', busy = false, loaded = false, ctl = null, statusCtl = null, botId = '', bots = [], fleetApps = null;
 let saveQueue = Promise.resolve(), removalRevision = '', duplicateSourceId = '', connection = '', activity = null, activityTimer, statusTarget = null;
 let copying = false, copyTimer;
+let commandHistory = [], commandIndex = 0, commandDraft = '';
+let pathTimer, pathController = null, pathRevision = 0;
+const pathFields = ['key', 'localEnv', 'localBot'];
 const post = (url, data, options = {}) => fetch(url, { method: 'POST', headers: { 'X-Panel': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(data), ...options });
-const cfg = () => ({ botId, ...Object.fromEntries([...document.querySelectorAll('[data-k]')].map(e => [e.dataset.k, e.value.trim()])) });
+const cfg = () => ({ botId, ...Object.fromEntries([...document.querySelectorAll('[data-k]')].map(e => [e.dataset.k, pathFields.includes(e.dataset.k) ? e.value : e.value.trim()])) });
 const confirmations = {
   resetrepo: 'Discard changes in the selected server checkout and match its remote branch? Untracked files will be removed, except the configured environment/database/backup exclusions.',
   stop: 'Stop the selected bot?', reboot: 'Reboot the whole server? Every running bot will disconnect.',
@@ -20,6 +23,38 @@ document.querySelectorAll('[data-k]').forEach(e => {
 $('#ud').setAttribute('aria-label', 'Upload destination folder');
 $('#cards').innerHTML = metrics.map(([key, label]) => `<div class="c"><span>${label}</span><b id="s-${key}">-</b></div>`).join('');
 
+const preferencesKey = 'oracle-bot-panel.preferences.v1';
+const preferenceControls = { logLines: ['#ll', 'value'], logErrorsOnly: ['#le', 'checked'], outputErrorsOnly: ['#outputerrors', 'checked'], autoRefresh: ['#auto', 'checked'] };
+function rememberPreferences() {
+  if (!$('#rememberprefs').checked) return;
+  try {
+    const values = Object.fromEntries(Object.entries(preferenceControls).map(([key, [selector, property]]) => [key, $(selector)[property]]));
+    localStorage.setItem(preferencesKey, JSON.stringify(ui.preferences(values)));
+    $('#prefnote').textContent = 'Display preferences are remembered in this browser.';
+  } catch { $('#prefnote').textContent = 'Could not remember preferences. Your current choices still work in this tab.'; }
+}
+function restorePreferences() {
+  $('#rememberprefs').checked = false;
+  $('#prefnote').textContent = 'Display preferences apply only to this tab.';
+  try {
+    const saved = localStorage.getItem(preferencesKey);
+    if (saved === null) return;
+    const values = ui.preferences(JSON.parse(saved));
+    if (!Object.keys(values).length) throw new Error('Invalid preferences');
+    for (const [key, value] of Object.entries(values)) { const [selector, property] = preferenceControls[key]; $(selector)[property] = value; }
+    $('#rememberprefs').checked = true;
+    $('#prefnote').textContent = 'Display preferences are remembered in this browser.';
+  } catch { $('#prefnote').textContent = 'Could not restore preferences. Your current choices still work in this tab.'; }
+}
+$('#rememberprefs').onchange = () => {
+  if ($('#rememberprefs').checked) { rememberPreferences(); return; }
+  try { localStorage.removeItem(preferencesKey); $('#prefnote').textContent = 'Remembered preferences cleared. Current choices apply only to this tab.'; }
+  catch { $('#prefnote').textContent = 'Could not clear remembered preferences in this browser. Current choices still work in this tab.'; }
+};
+$('#ll').onchange = $('#le').onchange = rememberPreferences;
+
+function updateCommandButton() { $('[data-a=custom]').disabled = busy || !loaded || !botId || !$('#cmd').value.trim(); }
+
 function setBusy(value) {
   busy = value;
   document.body.classList.toggle('busy', value);
@@ -30,6 +65,7 @@ function setBusy(value) {
   $('[data-k=entryFile]').disabled = value || !loaded || !bots.find(b => b.id === botId)?.managed;
   $('#refresh').disabled = value || !loaded || !botId || !cfg().host || !!statusCtl;
   $('#abort').disabled = !value || !ctl;
+  updateCommandButton();
 }
 
 async function api(url, payload, options) {
@@ -38,6 +74,39 @@ async function api(url, payload, options) {
   try { data = await response.json(); } catch { throw new Error('The local panel returned an unreadable response. Restart it and try again.'); }
   if (!response.ok || data.error) { const error = new Error(data.error || 'Request failed'); error.output = data.output; throw error; }
   return data;
+}
+
+function renderPathPreview(key, value, result, pending = false) {
+  const node = $('#path-' + key);
+  node.className = 'path-preview';
+  if (!value.trim()) {
+    node.textContent = key === 'key' ? 'No key selected — SSH uses its agent or default identities.'
+      : key === 'localEnv' ? 'Optional — choose a local .env file when uploading credentials.' : 'Optional — choose a local bot folder when syncing files.';
+    return;
+  }
+  if (pending) { node.textContent = 'Checking local path…'; return; }
+  const error = result?.error || (!result?.resolved ? 'Could not resolve this path.' : '');
+  node.textContent = [result?.resolved, error, result?.warning].filter(Boolean).join(' — ');
+  if (error) node.className += ' e';
+  else if (result?.warning) node.className += ' w';
+}
+
+function previewPaths() {
+  clearTimeout(pathTimer); pathController?.abort();
+  const revision = ++pathRevision;
+  const values = Object.fromEntries(pathFields.map(key => [key, $('[data-k=' + key + ']').value]));
+  pathFields.forEach(key => renderPathPreview(key, values[key], null, true));
+  pathTimer = setTimeout(async () => {
+    const controller = new AbortController(); pathController = controller;
+    try {
+      const results = await api('/api/paths', values, { signal: controller.signal, cache: 'no-store' });
+      if (revision !== pathRevision) return;
+      pathFields.forEach(key => renderPathPreview(key, values[key], results[key]));
+    } catch (error) {
+      if (revision !== pathRevision || controller.signal.aborted) return;
+      pathFields.forEach(key => renderPathPreview(key, values[key], { error: 'Preview unavailable: ' + error.message }));
+    } finally { if (pathController === controller) pathController = null; }
+  }, 250);
 }
 
 function targetInfo() {
@@ -73,8 +142,9 @@ function applyConfig(c) {
   document.querySelectorAll('[data-k]').forEach(e => { e.value = c[e.dataset.k] ?? ''; });
   statusTarget = cfg();
   $('#ud').value = ''; $('#cmd').value = ''; $('#sub').textContent = botId ? 'Selected ' + c.name : 'Use Add bot to create a profile';
+  commandIndex = commandHistory.length; commandDraft = '';
   $('#statusnote').textContent = c.host && botId ? 'Status not checked for this selection' : 'Set your server connection to check status';
-  clearMetrics(); targetInfo(); renderBots(); setBusy(busy);
+  clearMetrics(); targetInfo(); renderBots(); setBusy(busy); previewPaths();
 }
 
 function checkStatusTarget() {
@@ -124,7 +194,7 @@ function put(text) { buf += text; const lines = buf.split('\n'); buf = lines.pop
 function flush() { if (buf) { line(buf); buf = ''; } }
 function filterOutput() { [...T.children].forEach(e => { e.hidden = !ui.matchesOutput(e.textContent, $('#outputsearch').value, $('#outputerrors').checked); }); outputCount(); }
 const fullOutput = () => [...T.children].map(e => e.textContent).join('\n');
-$('#outputsearch').oninput = filterOutput; $('#outputerrors').onchange = filterOutput; T.onscroll = outputCount;
+$('#outputsearch').oninput = filterOutput; $('#outputerrors').onchange = () => { filterOutput(); rememberPreferences(); }; T.onscroll = outputCount;
 $('#jump').onclick = () => { $('#outputfollow').checked = true; T.scrollTop = T.scrollHeight; outputCount(); };
 $('#outputfollow').onchange = () => { if ($('#outputfollow').checked) { T.scrollTop = T.scrollHeight; outputCount(); } };
 $('#cl').onclick = () => { T.replaceChildren(); buf = ''; outputCount(); };
@@ -233,6 +303,7 @@ $('#removebotform').onsubmit = async e => {
 
 async function run(action, params = {}) {
   if (busy || !loaded || !botId) return;
+  if (action === 'custom' && (typeof params.cmd !== 'string' || !params.cmd.trim())) { updateCommandButton(); return; }
   const snapshot = cfg(), controller = new AbortController(); ctl = controller; statusCtl?.abort();
   const label = document.querySelector(`[data-a="${action}"]`)?.textContent || action;
   startActivity(label + ' · ' + snapshot.name); setBusy(true);
@@ -240,6 +311,11 @@ async function run(action, params = {}) {
   let result;
   try {
     await save(); if (controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+    if (action === 'custom') {
+      commandHistory.push(params.cmd);
+      if (commandHistory.length > 50) commandHistory.shift();
+      commandIndex = commandHistory.length; commandDraft = '';
+    }
     result = await ui.readActionResponse(await post('/api/run', { action, params, cfg: snapshot }, { signal: controller.signal }), put);
     if (result.status === 'unknown') put('\n⚠ The action ended without a completion result. Check the output before retrying.\n');
   } catch (error) { result = actionError(error); }
@@ -255,7 +331,16 @@ document.addEventListener('click', e => {
   const params = action === 'logs' || action === 'follow' ? { lines: $('#ll').value, filter: $('#lf').value, err: $('#le').checked } : action === 'custom' ? { cmd: $('#cmd').value } : {};
   run(action, params);
 });
-$('#cmd').onkeydown = e => { if (e.key === 'Enter') run('custom', { cmd: e.target.value }); };
+$('#cmd').oninput = updateCommandButton;
+$('#cmd').onkeydown = e => {
+  if (e.isComposing || e.keyCode === 229 || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || busy || !loaded || !botId) return;
+  if (e.key === 'Enter') { e.preventDefault(); run('custom', { cmd: e.target.value }); return; }
+  if (!commandHistory.length || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+  if (commandIndex === commandHistory.length) commandDraft = e.target.value;
+  commandIndex = Math.max(0, Math.min(commandHistory.length, commandIndex + (e.key === 'ArrowUp' ? -1 : 1)));
+  e.target.value = commandIndex === commandHistory.length ? commandDraft : commandHistory[commandIndex];
+  e.preventDefault(); updateCommandButton();
+};
 
 const base = () => { const dir = cfg().dir.replace(/\/+$/, ''), target = $('#ud').value.trim().replace(/\/+$/, ''); return target ? target[0] === '/' ? target : dir + '/' + target : dir; };
 async function upload(files, target) {
@@ -284,8 +369,8 @@ const dropzone = $('#dz'); ['dragover', 'dragenter'].forEach(event => dropzone.a
 ['dragleave', 'drop'].forEach(event => dropzone.addEventListener(event, () => dropzone.classList.remove('on')));
 dropzone.addEventListener('drop', e => upload([...e.dataTransfer.files], file => base() + '/' + file.name));
 ['dragover', 'drop'].forEach(event => addEventListener(event, e => e.preventDefault()));
-document.addEventListener('input', e => { if (e.target.dataset.k) checkStatusTarget(); });
-document.addEventListener('change', e => { if (e.target.dataset.k) { checkStatusTarget(); save().then(() => setBusy(busy)).catch(error => line('✖ Settings not saved: ' + error.message)); } });
+document.addEventListener('input', e => { if (e.target.dataset.k) checkStatusTarget(); if (pathFields.includes(e.target.dataset.k)) previewPaths(); });
+document.addEventListener('change', e => { if (e.target.dataset.k) { checkStatusTarget(); if (pathFields.includes(e.target.dataset.k)) previewPaths(); save().then(() => setBusy(busy)).catch(error => line('✖ Settings not saved: ' + error.message)); } });
 
 const uptime = ms => { const minutes = Math.floor(ms / 60000), hours = Math.floor(minutes / 60), days = Math.floor(hours / 24); return days ? days + 'd ' + hours % 24 + 'h' : hours ? hours + 'h ' + minutes % 60 + 'm' : minutes + 'm'; };
 async function st() {
@@ -308,7 +393,7 @@ async function st() {
   set('up', app?.status === 'online' ? uptime(Date.now() - app.uptime) : '-'); set('mem', app ? Math.round(app.mem / 1048576) + ' MB' : '-');
   set('cpu', app ? app.cpu + '%' : '-'); set('rs', app ? app.restarts : '-'); set('load', data.load); set('ram', data.mem); set('disk', data.disk);
 }
-$('#refresh').onclick = st; $('#auto').onchange = () => { if ($('#auto').checked) st(); };
+$('#refresh').onclick = st; $('#auto').onchange = () => { rememberPreferences(); if ($('#auto').checked) st(); };
 setInterval(() => { if ($('#auto').checked) st(); }, 30000);
 
 async function loadConfig() {
@@ -323,4 +408,4 @@ async function loadConfig() {
   st();
 }
 $('#retryload').onclick = loadConfig;
-outputCount(); loadConfig();
+restorePreferences(); outputCount(); loadConfig();

@@ -31,6 +31,16 @@
     return (!errorsOnly || outputLevel(text) === 'e') && String(text).toLowerCase().includes(String(query || '').trim().toLowerCase());
   }
 
+  function preferences(value) {
+    const result = {};
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return result;
+    if (['100', '200', '500', '1000', '3000'].includes(value.logLines)) result.logLines = value.logLines;
+    for (const key of ['logErrorsOnly', 'outputErrorsOnly', 'autoRefresh']) {
+      if (typeof value[key] === 'boolean') result[key] = value[key];
+    }
+    return result;
+  }
+
   async function readActionResponse(response, onText) {
     if (!response.ok) {
       let message = 'Request failed (HTTP ' + response.status + ').';
@@ -60,5 +70,5 @@
     return { status: 'unknown', code: null };
   }
 
-  return { matchesBot, fleetSummary, sameStatusTarget, outputLevel, matchesOutput, readActionResponse };
+  return { matchesBot, fleetSummary, sameStatusTarget, outputLevel, matchesOutput, preferences, readActionResponse };
 });
