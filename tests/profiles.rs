@@ -101,3 +101,75 @@ fn repository_reads_utf8_bom_from_windows_editors() {
         original
     );
 }
+
+#[test]
+fn copied_local_paths_work_in_legacy_and_version_two_configs() {
+    for (pasted, expected) in [
+        (
+            r#""C:\Users\A Person\ssh-key.key""#,
+            r"C:\Users\A Person\ssh-key.key",
+        ),
+        (
+            " \t\"C:\\Bots\\Música bot\\.env\"\r\n",
+            "C:\\Bots\\Música bot\\.env",
+        ),
+        (
+            r#""\\server\shared folder\bot""#,
+            r"\\server\shared folder\bot",
+        ),
+        (r"C:\Users\O'Brien\bot", r"C:\Users\O'Brien\bot"),
+        (" \" folder with spaces \" ", " folder with spaces "),
+        (r#""C:\unfinished"#, r#""C:\unfinished"#),
+        ("", ""),
+        ("\"\"", ""),
+    ] {
+        let legacy = json!({"key":pasted,"localEnv":pasted,"localBot":pasted});
+        let version_two = json!({"version":2,"server":{"key":pasted},"activeBotId":"first","bots":[
+            {"id":"first","app":"first","dir":"/home/opc/first","localEnv":pasted,"localBot":pasted},
+            {"id":"second","app":"second","dir":"/home/opc/second","localEnv":pasted,"localBot":pasted}
+        ]});
+        for raw in [legacy, version_two] {
+            let store = Store::normalize(raw).unwrap();
+            assert_eq!(store.server.key, expected);
+            for bot in &store.bots {
+                assert_eq!(bot.local_env, expected);
+                assert_eq!(bot.local_bot, expected);
+            }
+            let unchanged = store.update(&json!({})).unwrap();
+            assert_eq!(unchanged.server.key, expected);
+            assert_eq!(unchanged.bots[0].local_env, expected);
+            assert_eq!(unchanged.bots[0].local_bot, expected);
+        }
+    }
+}
+
+#[test]
+fn updated_local_paths_are_ready_for_actions_and_persist_without_quotes() {
+    let dir = tempfile::tempdir().unwrap();
+    let key = dir.path().join("key with spaces.key");
+    std::fs::write(&key, "test fixture, not a private key").unwrap();
+    let pasted = format!("  \"{}\"  ", key.display());
+    let command = r#"echo "keep these quotes""#;
+    let token = r#""keep-this-token-verbatim""#;
+    let store = Store::normalize(json!({}))
+        .unwrap()
+        .update(&json!({
+            "key":pasted,"localEnv":pasted,"localBot":format!("\"{}\"",dir.path().display()),
+            "buildCmd":command,"token":token
+        }))
+        .unwrap();
+    let active = store.active(None).unwrap();
+    assert!(std::path::Path::new(active["key"].as_str().unwrap()).is_file());
+    assert!(std::path::Path::new(active["localEnv"].as_str().unwrap()).is_file());
+    assert!(std::path::Path::new(active["localBot"].as_str().unwrap()).is_dir());
+    assert_eq!(active["buildCmd"], command);
+    assert_eq!(active["token"], token);
+    let repo = Repository {
+        path: dir.path().join("config.json"),
+    };
+    repo.write(&store).unwrap();
+    let saved: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&repo.path).unwrap()).unwrap();
+    assert_eq!(saved["server"]["key"], key.to_str().unwrap());
+    assert_eq!(repo.read().unwrap().server.key, key.to_str().unwrap());
+}

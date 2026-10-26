@@ -1,8 +1,13 @@
-name: Rust checks and Windows package
+name: Rust checks and optional Windows package
 on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      build_package:
+        description: Build the Windows EXE and ZIP (requires explicit approval)
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -21,10 +26,13 @@ jobs:
       - run: cargo test --locked
       - run: node --test
       - run: ./scripts/package.ps1
+        if: github.event_name == 'workflow_dispatch' && inputs.build_package
         shell: pwsh
       - run: ./scripts/smoke-package.ps1
+        if: github.event_name == 'workflow_dispatch' && inputs.build_package
         shell: pwsh
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' && inputs.build_package
         with:
           name: OracleBotControlPanel-windows-x64
           path: |

@@ -39,6 +39,6 @@ UI work lives in root HTML/JS. Profile changes belong in typed structs, allowlis
 
 Local orchestration belongs in http.rs and process.rs. Preserve scoped temp files, POST serialization, concurrent stdout/stderr draining, cancellation and final output markers. HTTP 200 alone never establishes remote success.
 
-package.ps1 builds with Cargo.lock, stages safe files and emits ignored dist outputs. -Target selects an installed target; -SkipBuild packages a verified release. Working config and credentials are never staged. The Windows CI workflow checks Rust/JS and uploads the portable package. Packages are unsigned; signing and public release publication require a separate release process.
+package.ps1 builds with Cargo.lock, stages safe files and emits ignored dist outputs. -Target selects an installed target; -SkipBuild packages a verified release without rebuilding the EXE. Working config and credentials are never staged. Ask the user before rebuilding release binaries. Pushes and pull requests run Rust/JS checks only; Windows packaging and artifact uploads require a manual workflow run with build_package enabled after approval. Publish verified, matching artifacts on GitHub Releases. Packages are unsigned.
 
 Tests do not establish live SSH/SCP compatibility with every VM, successful remote package installation, Discord health, full browser interaction coverage or rollback. Use a disposable VM for end-to-end validation.

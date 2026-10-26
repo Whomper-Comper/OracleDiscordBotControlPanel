@@ -26,6 +26,7 @@ pub struct Connection {
     pub host: String,
     pub port: String,
     pub user: String,
+    #[serde(deserialize_with = "deserialize_local_path")]
     pub key: String,
     pub token: String,
 }
@@ -52,7 +53,9 @@ pub struct Bot {
     pub app: String,
     pub build_cmd: String,
     pub cmd_sync_cmd: String,
+    #[serde(deserialize_with = "deserialize_local_path")]
     pub local_env: String,
+    #[serde(deserialize_with = "deserialize_local_path")]
     pub local_bot: String,
     pub entry_file: String,
 }
@@ -81,6 +84,20 @@ pub struct Store {
     pub server: Connection,
     pub active_bot_id: String,
     pub bots: Vec<Bot>,
+}
+
+fn deserialize_local_path<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<String, D::Error> {
+    let value = String::deserialize(deserializer)?;
+    // Windows "Copy as path" wraps the filename in double quotes. Remove only
+    // a matching pair; whitespace inside it belongs to the filename.
+    Ok(value
+        .trim()
+        .strip_prefix('"')
+        .and_then(|path| path.strip_suffix('"'))
+        .map(str::to_owned)
+        .unwrap_or(value))
 }
 
 pub fn normalize(raw: Value) -> Result<Value> {

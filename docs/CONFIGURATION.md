@@ -4,6 +4,8 @@ The panel persists state in `config.json` beside the executable, or the path sup
 
 Save manually edited configuration as UTF-8; an optional UTF-8 byte-order mark from Windows editors is supported. The first-write backup preserves the original file bytes.
 
+The SSH key, local `.env` file and local bot folder accept Windows **Copy as path** values such as `"C:\Users\Your Name\ssh-key.key"`. Matching outer double quotes and whitespace outside those quotes are removed automatically, including when loading existing settings. Spaces within the path are preserved.
+
 The save indicator at the top of the sidebar shows saving, saved, and failed states. Expand **Build commands & local files** to edit build/sync commands, the managed entry file, `localEnv`, and `localBot`. If initial settings loading fails, **Retry loading settings** attempts to load them again after the local panel is available.
 
 Expand **Repository & deployment** for repository, branch, token, install folder and PM2 settings. On narrow screens, use **Settings** in the dashboard header to jump to the settings panel below the dashboard. **Files & server tools** contains uploads, repository actions, server maintenance and custom commands; everyday bot controls, deployment and logs stay visible.
