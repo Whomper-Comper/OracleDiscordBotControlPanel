@@ -3,6 +3,7 @@ const shared = ['host', 'port', 'user', 'key', 'token'];
 const metrics = [['state', 'Bot'], ['up', 'Bot uptime'], ['mem', 'Bot memory'], ['cpu', 'Bot CPU'], ['rs', 'Restarts'], ['load', 'Server load'], ['ram', 'Server memory'], ['disk', 'Disk']];
 let buf = '', busy = false, loaded = false, ctl = null, statusCtl = null, botId = '', bots = [], fleetApps = null;
 let saveQueue = Promise.resolve(), removalRevision = '', duplicateSourceId = '', connection = '', activity = null, activityTimer, statusTarget = null;
+let copying = false, copyTimer;
 const post = (url, data, options = {}) => fetch(url, { method: 'POST', headers: { 'X-Panel': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(data), ...options });
 const cfg = () => ({ botId, ...Object.fromEntries([...document.querySelectorAll('[data-k]')].map(e => [e.dataset.k, e.value.trim()])) });
 const confirmations = {
@@ -104,7 +105,10 @@ function nearBottom() { return T.scrollHeight - T.scrollTop - T.clientHeight < 6
 function outputCount() {
   const total = T.children.length, shown = [...T.children].filter(e => !e.hidden).length;
   $('#outputcount').textContent = `${shown}/${total} lines`;
-  $('#outempty').hidden = !total || shown > 0;
+  $('#outempty').hidden = shown > 0;
+  $('#outempty').textContent = total ? 'No output matches these filters. Change your search or turn off Errors only.' : 'No output yet. Run an action to see progress and results here.';
+  $('#cp').disabled = !total || copying;
+  $('#sv').disabled = $('#cl').disabled = !total;
   $('#jump').hidden = !total || nearBottom();
 }
 function line(text, level) {
@@ -124,7 +128,17 @@ $('#outputsearch').oninput = filterOutput; $('#outputerrors').onchange = filterO
 $('#jump').onclick = () => { $('#outputfollow').checked = true; T.scrollTop = T.scrollHeight; outputCount(); };
 $('#outputfollow').onchange = () => { if ($('#outputfollow').checked) { T.scrollTop = T.scrollHeight; outputCount(); } };
 $('#cl').onclick = () => { T.replaceChildren(); buf = ''; outputCount(); };
-$('#cp').onclick = async () => { try { await navigator.clipboard.writeText(fullOutput()); } catch (error) { line('✖ Could not copy output: ' + error.message); } };
+$('#cp').setAttribute('aria-live', 'polite');
+$('#cp').onclick = async () => {
+  if (copying || !T.children.length) return;
+  clearTimeout(copyTimer); copying = true; $('#cp').textContent = 'Copying…'; outputCount();
+  try {
+    await navigator.clipboard.writeText(fullOutput());
+    $('#cp').textContent = 'Copied!';
+    copyTimer = setTimeout(() => { $('#cp').textContent = 'Copy all'; }, 2000);
+  } catch (error) { $('#cp').textContent = 'Copy all'; line('✖ Could not copy output: ' + error.message); }
+  finally { copying = false; outputCount(); }
+};
 $('#sv').onclick = () => { const link = document.createElement('a'), url = URL.createObjectURL(new Blob([fullOutput()], { type: 'text/plain' })); link.href = url; link.download = 'bot-output-' + Date.now() + '.txt'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
 
 function duration(ms) { const seconds = Math.max(0, Math.floor(ms / 1000)); return seconds < 60 ? seconds + 's' : Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's'; }
@@ -303,7 +317,7 @@ async function loadConfig() {
     const response = await fetch('/api/config'); if (!response.ok) throw new Error('Could not load panel settings.');
     const c = await response.json(); if (!Array.isArray(c.bots)) throw new Error('Restart the panel terminal to load the latest version.');
     loaded = true; applyConfig(c); settingsState('Settings save automatically');
-    line(c.host ? 'Ready. Select a bot or use Add bot to prepare another.' : 'Set the server connection in the sidebar, then use Test connection. Settings save automatically.', 'h');
+    line(c.host ? 'Ready. Select a bot or use Add bot to prepare another.' : 'Open Settings to enter your server connection, then use Test connection. Settings save automatically.', 'h');
   } catch (error) { loaded = false; $('#retryload').hidden = false; settingsState('Settings unavailable — retry when the local panel is running.', true); line('✖ ' + error.message); }
   finally { setBusy(false); }
   st();

@@ -2,20 +2,88 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const ui = require('./panel-ui.js');
 
-test('dashboard output removes ANSI colors split across streamed network chunks', () => {
+function dashboard({ writeText = async () => {} } = {}) {
   const fs = require('node:fs'), vm = require('node:vm');
-  const nodes = new Map();
-  const element = () => ({ children: [], dataset: {}, value: '', checked: false, scrollHeight: 0, scrollTop: 0, clientHeight: 0,
-    classList: { toggle() {} }, setAttribute() {}, addEventListener() {}, append(child) { this.children.push(child); } });
+  const nodes = new Map(), timers = new Map();
+  let nextTimer = 0;
+  const element = () => ({ children: [], dataset: {}, attributes: {}, value: '', textContent: '', checked: false, disabled: false, scrollHeight: 0, scrollTop: 0, clientHeight: 0,
+    classList: { toggle() {} }, setAttribute(name, value) { this.attributes[name] = value; }, addEventListener() {},
+    append(child) { this.children.push(child); }, replaceChildren(...children) { this.children = children; } });
   const getNode = selector => { if (!nodes.has(selector)) nodes.set(selector, element()); return nodes.get(selector); };
+  getNode('#cp').textContent = 'Copy all';
   const document = { querySelector: getNode, querySelectorAll: () => [], createElement: element,
     addEventListener() {}, body: element() };
   const context = vm.createContext({ document, PanelUI: ui, fetch: () => new Promise(() => {}),
-    addEventListener() {}, setInterval() {}, clearInterval() {} });
+    navigator: { clipboard: { writeText } },
+    setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay }); return id; },
+    clearTimeout(id) { timers.delete(id); }, addEventListener() {}, setInterval() {}, clearInterval() {} });
   vm.runInContext(fs.readFileSync(require.resolve('./dashboard.js'), 'utf8'), context);
-  vm.runInContext("put('\\x1b['); put('31mBuild failed\\x1b'); put('[0m\\r\\n'); put('\\x1b[3'); put('2mFinished\\x1b[0m'); flush();", context);
-  assert.deepEqual(nodes.get('#t').children.map(node => node.textContent), ['Build failed', 'Finished']);
-  assert.equal(nodes.get('#t').children[0].className, 'e');
+  return { node: getNode, run: source => vm.runInContext(source, context), timers };
+}
+
+test('dashboard output removes ANSI colors split across streamed network chunks', () => {
+  const { node, run } = dashboard();
+  run("put('\\x1b['); put('31mBuild failed\\x1b'); put('[0m\\r\\n'); put('\\x1b[3'); put('2mFinished\\x1b[0m'); flush();");
+  assert.deepEqual(node('#t').children.map(node => node.textContent), ['Build failed', 'Finished']);
+  assert.equal(node('#t').children[0].className, 'e');
+});
+
+test('output tools follow available lines and distinguish empty output from hidden results', () => {
+  const { node, run } = dashboard();
+  for (const id of ['#cp', '#sv', '#cl']) assert.equal(node(id).disabled, true);
+  assert.equal(node('#outempty').hidden, false);
+  assert.match(node('#outempty').textContent, /run an action/i);
+  const emptyMessage = node('#outempty').textContent;
+
+  run("line('Build completed');");
+  for (const id of ['#cp', '#sv', '#cl']) assert.equal(node(id).disabled, false);
+  assert.equal(node('#outempty').hidden, true);
+  node('#outputsearch').value = 'missing';
+  node('#outputsearch').oninput();
+  assert.equal(node('#outempty').hidden, false);
+  assert.notEqual(node('#outempty').textContent, emptyMessage);
+  assert.match(node('#outempty').textContent, /filters/i);
+  assert.equal(node('#outputcount').textContent, '0/1 lines');
+  assert.equal(node('#cp').disabled, false);
+
+  node('#cl').onclick();
+  assert.equal(node('#t').children.length, 0);
+  assert.equal(node('#outempty').textContent, emptyMessage);
+  for (const id of ['#cp', '#sv', '#cl']) assert.equal(node(id).disabled, true);
+});
+
+test('copy reports pending and success accessibly, preserves all output, and resets its label', async () => {
+  let finishCopy, copied;
+  const { node, run, timers } = dashboard({ writeText: text => { copied = text; return new Promise(resolve => { finishCopy = resolve; }); } });
+  run("line('First line'); line('Second line');");
+  node('#outputsearch').value = 'First';
+  node('#outputsearch').oninput();
+  const copying = node('#cp').onclick();
+  assert.equal(node('#cp').textContent, 'Copying…');
+  assert.equal(node('#cp').disabled, true);
+  assert.equal(node('#cp').attributes['aria-live'], 'polite');
+  assert.equal(copied, 'First line\nSecond line');
+  run("line('More output while copying');");
+  assert.equal(node('#cp').disabled, true);
+  finishCopy();
+  await copying;
+  assert.equal(node('#cp').textContent, 'Copied!');
+  assert.equal(node('#cp').disabled, false);
+  const reset = [...timers.values()].find(timer => timer.delay === 2000);
+  assert.ok(reset, 'Copy feedback resets after two seconds');
+  reset.callback();
+  assert.equal(node('#cp').textContent, 'Copy all');
+});
+
+test('failed copy leaves a readable error in output and restores the copy control', async () => {
+  const { node, run } = dashboard({ writeText: async () => { throw new Error('Clipboard denied'); } });
+  run("line('Build completed');");
+  await node('#cp').onclick();
+  assert.equal(node('#cp').textContent, 'Copy all');
+  assert.equal(node('#cp').disabled, false);
+  const failure = node('#t').children.at(-1);
+  assert.match(failure.textContent, /Could not copy output: Clipboard denied/);
+  assert.equal(failure.className, 'e');
 });
 
 test('fleet search matches display names and PM2 names without changing the saved list', () => {

@@ -2,77 +2,150 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Oracle bot control panel</title>
 <style>
-:root{color-scheme:dark;--side:#131c27;--bg:#0d131c;--card:#18222f;--ink:#e2eaf3;--mu:#a0afc2;--ac:#246e8c;--bd:#344359;--con:#090f16;--ok:#65d6a5;--er:#ff929b;--wa:#eac17a;--field:#101925;--button:#223044;--hover:#2d4058}
+:root{color-scheme:dark;--side:#101722;--bg:#0b111a;--card:#141e2b;--ink:#e8eef6;--mu:#9aabbd;--ac:#67d7c5;--bd:#2a384b;--con:#0a1018;--ok:#77dfad;--er:#ff9da7;--wa:#f0c980;--field:#0d1622;--button:#1d2a3b;--hover:#293b51}
 *{box-sizing:border-box}
-body{margin:0;height:100vh;display:grid;grid-template-columns:300px 1fr;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,sans-serif}
-aside{background:var(--side);color:#dbe4ee;padding:18px 16px;overflow:auto}
-aside h1{font-size:17px;margin:0}aside h2{font-size:13px;font-weight:600;color:#8fa3b8;margin:20px 0 2px;padding-top:12px;border-top:1px solid #2c3948}
-aside label{display:block;font-size:12px;color:#8fa3b8;margin:9px 0 3px}
-aside input,aside select{width:100%;background:#131b25;border:1px solid #33445a;color:#eaf1f8;border-radius:6px;padding:7px 9px;font:inherit}
-aside .mu{color:#8fa3b8;font-size:12px;margin-top:3px;word-break:break-all}
-.row{display:flex;gap:8px}.row>div:first-child{flex:1}
-main{display:flex;flex-direction:column;gap:12px;padding:16px 20px;min-width:0;height:100vh;overflow:auto}
-input:focus,button:focus-visible,select:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
-.c{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px 11px}
-.c span{display:block;font-size:12px;color:var(--mu)}.c b{font-size:16px;font-weight:600}
+[hidden]{display:none!important}
+body{margin:0;height:100vh;display:grid;grid-template-columns:280px minmax(0,1fr);background:var(--bg);color:var(--ink);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+button,input,select{font:inherit}
+button,.button-link{min-height:36px;border:1px solid var(--bd);border-radius:7px;background:var(--button);color:var(--ink);padding:7px 12px;cursor:pointer;text-decoration:none;line-height:1.35;transition:background .15s,border-color .15s}
+button:hover,.button-link:hover{background:var(--hover);border-color:#4b627c}
+button.p{background:var(--ac);border-color:var(--ac);color:#092c29;font-weight:650}
+button.p:hover{background:#86e6d6;border-color:#86e6d6}
+button.d{color:var(--er);background:#2a1d29;border-color:#6a3948}
+button.d:hover{background:#412332;border-color:#ac596c}
+button:disabled,input:disabled,select:disabled{opacity:.45;cursor:not-allowed}
+button:disabled:hover{background:var(--button);border-color:var(--bd)}
+:is(input,select,button,a,summary):focus-visible,#t:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
+input:not([type=checkbox]):not([type=file]),select{min-width:0;border:1px solid var(--bd);border-radius:7px;padding:8px 10px;background:var(--field);color:var(--ink)}
+input::placeholder{color:#8397ad;opacity:1}
+input[type=checkbox]{accent-color:var(--ac);width:15px;height:15px;vertical-align:-2px;margin-right:5px}
+input[type=search]::-webkit-search-cancel-button{cursor:pointer}
+.skip-link{position:fixed;top:8px;left:8px;z-index:10;transform:translateY(-150%);background:var(--ac);color:#092c29;padding:10px 16px;border-radius:7px}
+.skip-link:focus{transform:none}
+aside{padding:24px 18px;overflow:auto;background:var(--side);border-right:1px solid var(--bd);scrollbar-width:thin}
+aside:focus,main:focus{outline:none}
+.brand{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+.brand-mark{display:grid;place-items:center;width:40px;height:44px;border:1px solid #315c59;border-radius:11px;background:#17322f;color:var(--ac)}
+.eyebrow{color:var(--mu);font-size:10px;font-weight:650;letter-spacing:.16em;line-height:1.7}
+aside h1{font-size:18px;font-weight:650;letter-spacing:-.02em;margin:0}
+aside h2{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--mu);margin:24px 0 8px;padding-top:17px;border-top:1px solid var(--bd)}
+aside label{display:block;font-size:12px;color:#b4c2d2;margin:12px 0 5px}
+aside input,aside select{width:100%}
+aside .mu{color:var(--mu);font-size:12px;margin-top:9px;overflow-wrap:anywhere}
+#sub{padding-bottom:5px}
+.settings-state{font-size:11px;color:var(--mu);min-height:18px;overflow-wrap:anywhere}
+.settings-state.e{color:var(--er)}
+#retryload{margin-top:8px}
+.row{display:flex;gap:10px}.row>div:first-child{flex:1;min-width:0}
+.sidebar-actions{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}
+.sidebar-actions button{font-size:11px;padding:6px 9px;min-height:32px}
+.settings-group,.advanced{margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)}
+summary{cursor:pointer;font-size:13px;font-weight:600;color:#c5d3e2;line-height:1.6;user-select:none}
+summary::marker{color:var(--ac);font-size:11px}
+.settings-group[open]>summary,.advanced[open]>summary{margin-bottom:8px}
+.settings-group h2{margin-top:18px}
+aside .g button{font-size:12px}
+main{min-width:0;height:100vh;overflow:auto;padding:26px 28px;display:flex;flex-direction:column;gap:18px;scrollbar-width:thin}
+main>*{flex-shrink:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-bottom:4px}
+.top-info{min-width:0}
+.top h2{margin:1px 0 3px;font-size:28px;letter-spacing:-.035em;font-weight:650;overflow-wrap:anywhere}
+.target{color:#b5c4d6;font:12px/1.6 "Cascadia Mono",Consolas,monospace;overflow-wrap:anywhere}
+.status-note{font-size:11px;color:var(--mu);margin-top:5px}
+.top-actions{display:flex;flex-direction:column;align-items:flex-end;gap:9px;flex-shrink:0}
+.top-actions label{font-size:12px;color:var(--mu);white-space:nowrap}
+.g{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.c{min-width:0;background:var(--card);border:1px solid var(--bd);border-radius:9px;padding:12px 14px}
+.c span{display:block;font-size:11px;color:var(--mu);margin-bottom:5px}
+.c b{font-size:17px;font-weight:600;letter-spacing:-.025em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.c:first-child{border-color:#315c59;background:#142825}
 b.o{color:var(--ok)}b.e{color:var(--er)}b.w{color:var(--wa)}
-.top{display:flex;justify-content:space-between;align-items:center;gap:10px}.top h2{margin:0;font-size:20px}
-.top label{font-size:13px;color:var(--mu)}
-.secs{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
-section{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:12px 14px}
-section h3{margin:0 0 8px;font-size:14px}section p{margin:0 0 8px;color:var(--mu);font-size:12px}
-.g{display:flex;flex-wrap:wrap;gap:6px}
-button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--button);color:var(--ink);border-radius:6px;padding:6px 11px}
-button:hover{background:var(--hover)}
-button.p{background:var(--ac);border-color:var(--ac);color:#fff}button.p:hover{background:#185a73}
-button.d{color:var(--er);border-color:#79434e}
-aside button{background:#243142;border-color:#33445a;color:#dbe4ee}aside button:hover{background:#2d3d52}
-.busy button[data-a]:not([data-a=abort]){opacity:.45;pointer-events:none}
-.lg{display:flex;gap:6px;margin-bottom:8px;align-items:center}
-.lg select,.lg input[type=text],#cmd{border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font:inherit;background:var(--field);color:var(--ink)}.lg input[type=text]{flex:1;min-width:0}
-.cmdrow{display:flex;gap:6px}#cmd{flex:1;font-family:"Cascadia Mono",Consolas,monospace;font-size:13px}
-.dz{border:1.5px dashed var(--bd);border-radius:8px;padding:14px;text-align:center;color:var(--mu);margin-bottom:8px}.dz.on{border-color:#68bfdc;background:#193342}
-#ud{width:100%;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font:inherit;margin-bottom:8px;background:var(--field);color:var(--ink)}
-input::placeholder{color:#95a5b9;opacity:1}input[type=checkbox]{accent-color:#57b9d9}
-.term{display:flex;flex-direction:column;background:var(--con);border-radius:8px;flex:1;min-height:300px;overflow:hidden}
-.tb{display:flex;gap:6px;padding:6px 8px;border-bottom:1px solid #243040;align-items:center;color:#8fa3b8;font-size:12px}
-.tb span{flex:1}.tb button{background:#1a2430;border-color:#2c3a4b;color:#cdd9e5;padding:3px 9px}
-#t{flex:1;overflow:auto;padding:10px 12px;font:13px/1.45 "Cascadia Mono",Consolas,monospace;color:#cfd9e3;white-space:pre-wrap;word-break:break-word}
-#t .e{color:#ff7b86}#t .w{color:#f0c36a}#t .o{color:#5fdca4}#t .h{color:#6cc3e0;margin-top:6px}
-@media(max-width:800px){body{grid-template-columns:1fr;height:auto}aside,main{height:auto}}
-button:disabled,input:disabled,select:disabled{opacity:.5;cursor:default}
-.fleet{display:flex;gap:8px;flex-wrap:wrap}.fleet button{text-align:left;min-width:150px;flex:1}.fleet button.selected{border-color:#68bfdc;background:#193342}.fleet small{display:block;color:var(--mu)}
-dialog{background:var(--card);color:var(--ink);border:1px solid var(--bd);border-radius:12px;width:min(460px,90vw);padding:24px}dialog::backdrop{background:#0009}dialog h2{margin-top:0}dialog label{display:block;margin:12px 0 4px}dialog input{width:100%;padding:9px;background:var(--field);color:var(--ink);border:1px solid var(--bd);border-radius:6px}dialog p{color:var(--mu)}dialog .g{margin-top:18px}
-dialog select{width:100%;padding:9px;background:var(--field);color:var(--ink);border:1px solid var(--bd);border-radius:6px}dialog input[type=checkbox]{width:auto}dialog .danger{color:var(--er);overflow-wrap:anywhere}
-[hidden]{display:none!important}.muted{color:var(--mu);font-size:12px}.top{flex-wrap:wrap}.top h2{font-size:21px}.top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.top-info{min-width:0}.target{color:var(--mu);font-size:12px;overflow-wrap:anywhere;margin-top:3px}.status-note{font-size:12px;color:var(--mu);margin-top:5px}.settings-state{font-size:12px;color:var(--mu);margin-top:5px}.settings-state.e{color:var(--er)}
-.activity{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;background:var(--card);border:1px solid var(--bd);border-left:3px solid var(--mu);border-radius:7px;font-size:13px}.activity[data-state=running]{border-left-color:#68bfdc}.activity[data-state=success]{border-left-color:var(--ok)}.activity[data-state=failed]{border-left-color:var(--er)}.activity[data-state=unknown],.activity[data-state=cancelled]{border-left-color:var(--wa)}.activity small{color:var(--mu);white-space:nowrap}
-.fleet-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.fleet-head h3{margin:0}.fleet-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.fleet-tools input{flex:1;min-width:150px}.fleet button{min-width:180px;position:relative}.fleet .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--mu);margin-right:7px}.fleet .online{background:var(--ok)}.fleet .offline{background:var(--wa)}.fleet button[aria-pressed=true]{border-color:#68bfdc;background:#193342}
-.toolbar-input{border:1px solid var(--bd);border-radius:6px;padding:7px 9px;background:var(--field);color:var(--ink);font:inherit}.output-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px;border-bottom:1px solid #243040;font-size:12px;color:var(--mu)}.output-tools input[type=search]{flex:1;min-width:160px}.output-tools label{white-space:nowrap}.tb{flex-wrap:wrap}.tb strong{flex:1;font-weight:500}.term{min-height:320px}#t{min-height:200px;max-height:65vh}#outempty{padding:10px 12px;color:var(--mu);font-size:12px}.lg,.cmdrow{flex-wrap:wrap}.cmdrow input{min-width:180px}.lg select{max-width:90px}.lg label{white-space:nowrap}.advanced{margin-top:16px;border-top:1px solid #2c3948;padding-top:12px}.advanced summary{cursor:pointer;color:#a9bed3;font-size:13px}.advanced h2{margin-top:12px}.sidebar-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.sidebar-actions button{font-size:12px;padding:6px 8px}
-.cards{grid-template-columns:repeat(4,minmax(0,1fr))}
-@media(max-width:800px){main{padding:12px;overflow:visible}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.top-actions{width:100%}.fleet button{min-width:140px}.term{min-height:350px}.activity{align-items:flex-start}.tb button{padding:5px 8px}.lg input[type=text]{min-width:150px}}
+section{min-width:0;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px}
+section h3{margin:0 0 5px;font-size:14px;font-weight:650}
+section p{margin:0 0 13px;color:var(--mu);font-size:12px;line-height:1.6}
+.muted{color:var(--mu);font-size:11px}
+.fleet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.fleet-head h3{margin:0}
+.fleet-tools{display:flex;align-items:center;gap:14px;margin:12px 0}
+.fleet-tools input{width:260px;max-width:100%;font-size:12px}
+.fleet{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.fleet button{position:relative;min-width:0;text-align:left;background:var(--field);padding:11px 13px;overflow-wrap:anywhere}
+.fleet button:hover{background:var(--hover)}
+.fleet button[aria-pressed=true]{border-color:var(--ac);background:#15352f;box-shadow:inset 3px 0 var(--ac)}
+.fleet small{display:block;font-size:11px;color:var(--mu);margin-top:5px;padding-left:14px}
+.status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mu);margin-right:8px;vertical-align:2px}
+.status-dot.online{background:var(--ok)}.status-dot.offline{background:var(--wa)}
+.workspace{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(0,1.1fr);gap:18px;align-items:start}
+.action-stack,.secs{display:grid;gap:12px;min-width:0}
+.secondary-actions{margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)}
+.secondary-actions button{font-size:12px;background:transparent;color:var(--mu)}
+.maintenance{border:1px solid var(--bd);border-radius:10px;background:var(--card);min-width:0}
+.maintenance>summary{padding:14px 16px}
+.maintenance>summary span{display:inline-block;vertical-align:middle}
+.maintenance small{display:block;font-weight:400;color:var(--mu);font-size:11px;margin-top:2px}
+.maintenance>.secs{padding:0 12px 12px}
+.maintenance section{background:var(--side);padding:13px}
+.lg,.cmdrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:11px}
+.lg select{width:78px;font-size:12px}
+.lg input[type=text]{flex:1;min-width:120px;width:0;font-size:12px}
+.lg label{white-space:nowrap;color:var(--mu);font-size:12px}
+.cmdrow{margin:8px 0 0}.cmdrow input{flex:1;min-width:140px;font:12px/1.5 "Cascadia Mono",Consolas,monospace}
+.dz{border:1px dashed #435770;border-radius:8px;padding:20px 12px;text-align:center;color:#c3d1e1;margin:12px 0;background:var(--field);font-size:13px}
+.dz>span{display:block;color:var(--ac);font-size:25px;line-height:1.4}.dz>small{display:block;color:var(--mu);font-size:11px;margin-top:4px}
+.dz.on{border-color:var(--ac);background:#15352f}
+#ud{width:100%;margin-bottom:10px;font-size:12px}
+.term{min-width:0;display:flex;flex-direction:column;position:sticky;top:0;background:var(--con);border:1px solid var(--bd);border-radius:10px;min-height:540px;max-height:calc(100vh - 52px);overflow:hidden}
+.tb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:13px 14px;border-bottom:1px solid var(--bd)}
+.tb strong{flex:1 1 100%;font-size:13px;font-weight:600;margin-bottom:4px}.tb small{margin-left:6px;font-weight:400}
+.tb button{padding:5px 9px;font-size:11px;min-height:30px;background:#182332}
+#abort:not(:disabled){color:var(--er);border-color:#8a4857}
+.activity{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-bottom:1px solid var(--bd);border-left:3px solid #54657a;background:#111d2a;font-size:12px}
+.activity[data-state=running]{border-left-color:var(--ac);background:#142825}
+.activity[data-state=success]{border-left-color:var(--ok)}.activity[data-state=failed]{border-left-color:var(--er)}
+.activity[data-state=unknown],.activity[data-state=cancelled]{border-left-color:var(--wa)}
+.activity small{color:var(--mu);white-space:nowrap;font-variant-numeric:tabular-nums}
+.output-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd);font-size:11px;color:var(--mu)}
+.output-tools input[type=search]{flex:1 1 100%;width:100%;font-size:12px;padding:7px 9px}.output-tools label{white-space:nowrap}
+#outempty{padding:28px 20px;text-align:center;color:var(--mu);font-size:12px;line-height:1.8;border-bottom:1px solid #1b2736}
+#t{flex:1;min-height:180px;overflow:auto;padding:16px;font:12px/1.75 "Cascadia Mono",Consolas,monospace;color:#c8d5e5;white-space:pre-wrap;overflow-wrap:anywhere;scrollbar-width:thin}
+#t .e{color:var(--er)}#t .w{color:var(--wa)}#t .o{color:var(--ok)}#t .h{color:#83d9df;margin-top:6px}
+dialog{background:var(--card);color:var(--ink);border:1px solid #41566d;border-radius:14px;width:min(490px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto;padding:26px;box-shadow:0 24px 90px #0008}
+dialog::backdrop{background:#03080fbb}
+dialog h2{margin:0 0 10px;font-size:22px;letter-spacing:-.025em}dialog p{color:var(--mu);font-size:13px;line-height:1.65}
+dialog label{display:block;font-size:13px;margin:16px 0 6px}dialog input,dialog select{width:100%}dialog input[type=checkbox]{width:15px}
+dialog .g{margin-top:24px}dialog .danger{color:var(--er);overflow-wrap:anywhere}
+@media(min-width:1700px){.cards{grid-template-columns:repeat(8,minmax(0,1fr))}.tb strong{flex-basis:auto;margin:0}.output-tools input[type=search]{flex-basis:180px}}
+@media(max-width:1250px){body{grid-template-columns:260px minmax(0,1fr)}main{padding:22px}.workspace{grid-template-columns:minmax(0,1fr)}.secs{grid-template-columns:repeat(2,minmax(0,1fr))}.secs>section:last-child{grid-column:1/-1}.maintenance .secs{grid-template-columns:1fr}.term{position:static;max-height:none;min-height:360px}#t{max-height:55vh}.tb strong{flex-basis:auto}.output-tools input[type=search]{flex-basis:180px}}
+@media(max-width:900px){body{height:auto;grid-template-columns:minmax(0,1fr)}main{order:0;height:auto;overflow:visible;padding:22px 18px}aside{order:1;height:auto;overflow:visible;border-right:0;border-top:1px solid var(--bd);padding:24px 20px;scroll-margin-top:12px}.brand{margin-bottom:12px}.cards{gap:8px}.settings-group,.advanced{margin-top:18px}.top{align-items:flex-start}.top h2{font-size:26px}.fleet-tools{flex-wrap:wrap}.term{min-height:380px}}
+@media(max-width:540px){main{gap:14px;padding:18px 12px}.top{flex-direction:column;gap:12px}.top-actions{width:100%;align-items:flex-start}.top-actions .g{width:100%}.top-actions button{flex:1}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.c{padding:11px 12px}.c b{font-size:16px}.secs{grid-template-columns:minmax(0,1fr)}.fleet{grid-template-columns:minmax(0,1fr)}.fleet-tools input{width:100%}.fleet-tools>span{display:none}.workspace{gap:14px}section{padding:14px}.g{gap:8px}.g button{min-height:40px}.tb strong{flex-basis:100%}.tb button{min-height:36px}.output-tools input[type=search]{flex-basis:100%}.term{min-height:400px}.activity{align-items:flex-start}.cmdrow button{min-height:40px}dialog{padding:20px}.sidebar-actions button{min-height:38px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
+
 </style></head>
 <body>
-<aside>
-  <h1>Oracle bot panel</h1><div class="mu" id="sub">Not connected</div>
+<a class="skip-link" href="#main">Skip to dashboard</a>
+<aside id="settings" tabindex="-1" aria-label="Bot and server settings">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M8 6.5h.01M8 17.5h.01M12 10v4" stroke-linecap="round"/></svg></span><div><div class="eyebrow">BOT OPERATIONS</div><h1>Oracle panel</h1></div></div><div class="mu" id="sub">Not connected</div>
   <div class="settings-state" id="saved" role="status" aria-live="polite">Loading settings…</div><button type="button" id="retryload" hidden>Retry loading settings</button>
   <h2>Bots</h2>
   <label for="botselect">Selected bot</label><select id="botselect"></select>
   <div class="sidebar-actions"><button id="addbot">+ Add bot</button><button id="duplicatebot">Duplicate setup</button><button id="removebot" class="d">Remove</button></div>
   <label>Bot display name</label><input data-k="name">
   <div class="mu">Each bot keeps its own repository, files and commands. Server connection settings are shared.</div>
-  <h2>Server</h2>
+  <details class="settings-group" open><summary>Server connection</summary>
   <label>Host / IP</label><input data-k="host" placeholder="vm.example.com">
   <div class="row"><div><label>SSH user</label><input data-k="user"></div><div style="width:70px"><label>Port</label><input data-k="port"></div></div>
   <label>SSH key file</label><input data-k="key" placeholder="C:\Users\you\ssh-key.key">
   <div class="g" style="margin-top:10px"><button data-a="test">Test connection</button><button data-a="fixkey" title="Fixes the 'UNPROTECTED PRIVATE KEY FILE' error on Windows">Fix key permissions</button></div>
-  <h2>GitHub</h2>
+  </details>
+  <details class="settings-group"><summary>Repository &amp; deployment</summary>
   <label>Repository URL</label><input data-k="repo">
   <label>Branch</label><input data-k="branch" placeholder="main">
   <label>Personal access token</label><input data-k="token" type="password" autocomplete="off">
   <h2>Bot on the server</h2>
   <label>Install folder</label><input data-k="dir">
   <label>PM2 app name</label><input data-k="app">
+  </details>
   <details class="advanced"><summary>Build commands &amp; local files</summary>
   <label>Build command</label><input data-k="buildCmd">
   <label>Command sync (slash commands)</label><input data-k="cmdSyncCmd">
@@ -84,34 +157,37 @@ dialog select{width:100%;padding:9px;background:var(--field);color:var(--ink);bo
   <button id="envpick" style="margin-top:10px">Choose .env file and upload</button><input type="file" id="envf" hidden>
   </details>
 </aside>
-<main>
-  <div class="top"><div class="top-info"><h2 id="nm">Oracle VM</h2><div class="target" id="targetinfo"></div><div class="status-note" id="statusnote">Status not checked</div></div><div class="top-actions"><button type="button" id="refresh">Refresh now</button><label><input type="checkbox" id="auto" checked> Refresh every 30s</label></div></div>
-  <div class="activity" id="activity" data-state="idle"><span id="activitytext" role="status" aria-live="polite">Ready when you are</span><small id="activitytime" aria-hidden="true"></small></div>
-  <div class="cards" id="cards"></div>
-  <section><div class="fleet-head"><h3>All bots</h3><span class="muted" id="fleetcounts"></span></div><div class="fleet-tools"><input class="toolbar-input" type="search" id="botsearch" aria-label="Find a saved bot" placeholder="Find a bot by name or PM2 app…"><span class="muted">Select a bot to manage it</span></div><div class="fleet" id="fleet"></div></section>
-  <div class="secs">
-    <section><h3>Bot</h3><div class="g">
-      <button class="p" data-a="start">Start</button><button class="d" data-a="stop">Stop</button><button class="p" data-a="restart">Restart</button><button data-a="solo">Stop others &amp; start</button><button data-a="status">PM2 status</button></div></section>
-    <section><h3>Deploy</h3><div class="g">
+<main id="main" tabindex="-1">
+  <div class="top"><div class="top-info"><div class="eyebrow">DASHBOARD</div><h2 id="nm">Oracle VM</h2><div class="target" id="targetinfo"></div><div class="status-note" id="statusnote">Status not checked</div></div><div class="top-actions"><div class="g"><a class="button-link" href="#settings">Settings</a><button type="button" id="refresh">↻ Refresh status</button></div><label><input type="checkbox" id="auto" checked> Auto-refresh · 30s</label></div></div>
+  <div class="cards" id="cards" aria-label="Bot and server metrics"></div>
+  <section class="fleet-section"><div class="fleet-head"><h3>Your bots</h3><span class="muted" id="fleetcounts"></span></div><div class="fleet-tools"><input class="toolbar-input" type="search" id="botsearch" aria-label="Find a saved bot" placeholder="Find a bot…"><span class="muted">Select a bot to manage</span></div><div class="fleet" id="fleet"></div></section>
+  <div class="workspace"><div class="action-stack"><div class="secs">
+    <section><h3>Bot controls</h3><p>Manage the selected bot’s process.</p><div class="g">
+      <button class="p" data-a="start">Start bot</button><button data-a="restart">Restart</button><button class="d" data-a="stop">Stop</button><button data-a="status">PM2 status</button></div><div class="secondary-actions"><button data-a="solo">Stop others &amp; start</button></div></section>
+    <section><h3>Deploy changes</h3><p>Update this bot’s code, configuration and commands.</p><div class="g">
       <button class="p" data-a="deploy">Pull &amp; deploy</button><button data-a="redeploy">Deploy current files</button><button data-a="cmds">Update slash commands globally</button>
       <button data-a="env">Upload .env</button><button data-a="code">Upload code &amp; deploy</button><button data-a="envshow">Show .env keys</button></div></section>
-    <section><h3>Repository</h3><p>Clones the repo, or updates it if it is already on the server.</p><div class="g">
-      <button class="p" data-a="clone">Clone / update repo</button><button data-a="prepare">Prepare bot files</button><button data-a="gitstatus">Repo status</button><button class="d" data-a="resetrepo">Reset to remote</button></div></section>
-    <section><h3>Upload files</h3><div class="dz" id="dz">Drop files here to send them to the server</div>
-      <input id="ud" placeholder="Destination folder (empty = install folder)" spellcheck="false">
-      <div class="g"><button id="pick">Choose files</button></div><input type="file" id="upf" multiple hidden></section>
-    <section><h3>Server</h3><div class="g">
-      <button class="p" data-a="setup">Initial setup</button><button data-a="sysupdate">Update OS packages</button><button data-a="npmupdate">Update npm &amp; PM2</button>
-      <button data-a="sysinfo">Disk &amp; memory</button><button data-a="memory" title="Adds 2 GiB swap on low-memory VMs when needed">Prepare memory</button><button data-a="backup">Back up database</button><button class="d" data-a="reboot">Reboot server</button></div></section>
-    <section><h3>Logs</h3>
+    <section><h3>Logs</h3><p>Read recent output or follow your bot live.</p>
       <div class="lg"><select id="ll" aria-label="Number of log lines"><option>100</option><option selected>200</option><option>500</option><option>1000</option><option>3000</option></select>
       <input type="text" id="lf" aria-label="Filter remote log text" placeholder="Filter remote log text"><label><input type="checkbox" id="le"> Errors only</label></div>
       <div class="g"><button class="p" data-a="logs">Fetch logs</button><button data-a="follow">Follow live</button><button class="d" data-a="flush">Flush logs</button></div></section>
   </div>
-  <div class="cmdrow"><input id="cmd" aria-label="Custom server command" placeholder="Run a command on the server" spellcheck="false"><button data-a="custom">Run command</button></div>
-  <div class="term"><div class="tb"><strong>Output <small class="muted" id="outputcount"></small></strong><button data-a="abort" id="abort" disabled>Cancel action</button><button id="jump" hidden>Jump to latest</button><button id="cp">Copy all</button><button id="sv">Save all</button><button id="cl">Clear</button></div><div class="output-tools"><input class="toolbar-input" id="outputsearch" type="search" aria-label="Search displayed output" placeholder="Search output…"><label><input type="checkbox" id="outputerrors"> Errors only</label><label><input type="checkbox" id="outputfollow" checked> Follow output</label></div><div id="outempty" hidden>No output matches these filters.</div><div id="t" role="log" aria-live="off" aria-label="Action output" tabindex="0"></div></div>
+  <details class="maintenance"><summary><span>Files &amp; server tools<small>Repository, uploads, maintenance and commands</small></span></summary><div class="secs">
+    <section><h3>Repository</h3><p>Clones the repo, or updates it if it is already on the server.</p><div class="g">
+      <button data-a="clone">Clone / update repo</button><button data-a="prepare">Prepare bot files</button><button data-a="gitstatus">Repo status</button><button class="d" data-a="resetrepo">Reset to remote</button></div></section>
+    <section><h3>Upload files</h3><div class="dz" id="dz"><span aria-hidden="true">↑</span>Drop files here<small>Upload to the selected bot’s server folder</small></div>
+      <input id="ud" placeholder="Destination folder (empty = install folder)" spellcheck="false">
+      <div class="g"><button id="pick">Choose files</button></div><input type="file" id="upf" multiple hidden></section>
+    <section><h3>Server maintenance</h3><p>Server-wide changes can affect every bot on this VM.</p><div class="g">
+      <button data-a="setup">Initial setup</button><button data-a="sysupdate">Update OS packages</button><button data-a="npmupdate">Update npm &amp; PM2</button>
+      <button data-a="sysinfo">Disk &amp; memory</button><button data-a="memory" title="Adds 2 GiB swap on low-memory VMs when needed">Prepare memory</button><button data-a="backup">Back up database</button><button class="d" data-a="reboot">Reboot server</button></div></section>
+    <section><h3>Run a command</h3><div class="cmdrow"><input id="cmd" aria-label="Custom server command" placeholder="Command to run on the server" spellcheck="false"><button data-a="custom">Run</button></div></section>
+  </div>
+  </details></div>
+  <div class="term"><div class="tb"><strong>Action output <small class="muted" id="outputcount"></small></strong><button data-a="abort" id="abort" disabled>Cancel action</button><button id="jump" hidden>Jump to latest</button><button id="cp">Copy all</button><button id="sv">Save all</button><button id="cl">Clear</button></div><div class="activity" id="activity" data-state="idle"><span id="activitytext" role="status" aria-live="polite">Ready when you are</span><small id="activitytime" aria-hidden="true"></small></div><div class="output-tools"><input class="toolbar-input" id="outputsearch" type="search" aria-label="Search displayed output" placeholder="Search output…"><label><input type="checkbox" id="outputerrors"> Errors only</label><label><input type="checkbox" id="outputfollow" checked> Follow output</label></div><div id="outempty" hidden>No output matches these filters.</div><div id="t" role="log" aria-live="off" aria-label="Action output" tabindex="0"></div></div>
+  </div>
 </main>
-<dialog id="newbot"><form id="newbotform">
+<dialog id="newbot" aria-labelledby="newtitle" aria-describedby="newdescription"><form id="newbotform">
   <h2 id="newtitle">Add a bot</h2><p id="newdescription">Give it a name to generate a separate folder, PM2 name, and launch configuration. Add a repository now or later.</p>
   <label for="newname">Bot name</label><input id="newname" required maxlength="100" placeholder="Music bot">
   <label for="newrepo">Repository URL (optional)</label><input id="newrepo" placeholder="https://github.com/you/music-bot.git">
@@ -120,8 +196,8 @@ dialog select{width:100%;padding:9px;background:var(--field);color:var(--ink);bo
   <p class="danger" id="newerror" role="alert" hidden></p>
   <div class="g"><button class="p" type="submit" id="newsubmit">Create &amp; prepare</button><button type="button" id="cancelnew">Cancel</button></div>
 </form></dialog>
-<dialog id="removebotdialog"><form id="removebotform">
-  <h2>Remove bot</h2><p id="removetarget"></p>
+<dialog id="removebotdialog" aria-labelledby="removetitle" aria-describedby="removetarget"><form id="removebotform">
+  <h2 id="removetitle">Remove bot</h2><p id="removetarget"></p>
   <label for="removemode">What should be removed?</label>
   <select id="removemode">
     <option value="profile">Saved profile only (keep the bot running and its files)</option>

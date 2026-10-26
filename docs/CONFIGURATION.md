@@ -6,6 +6,8 @@ Save manually edited configuration as UTF-8; an optional UTF-8 byte-order mark f
 
 The save indicator at the top of the sidebar shows saving, saved, and failed states. Expand **Build commands & local files** to edit build/sync commands, the managed entry file, `localEnv`, and `localBot`. If initial settings loading fails, **Retry loading settings** attempts to load them again after the local panel is available.
 
+Expand **Repository & deployment** for repository, branch, token, install folder and PM2 settings. On narrow screens, use **Settings** in the dashboard header to jump to the settings panel below the dashboard. **Files & server tools** contains uploads, repository actions, server maintenance and custom commands; everyday bot controls, deployment and logs stay visible.
+
 > `config.json` is a credential-bearing **runtime file**. The example below is illustrative; do not replace your working config unless you mean to reconfigure the panel.
 
 For a new installation, copy the root `config.example.json` to `config.json`, then enter connection and bot settings in the sidebar. The example contains no host, token, SSH-key path, or local upload paths. The included `.env.example` illustrates common bot variables only; the panel does not read it. Both actual configuration and bot environment files are ignored by Git.
